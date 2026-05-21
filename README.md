@@ -5,7 +5,7 @@
 <h1 align="center">SparkGuardian</h1>
 
 <p align="center">
-  <em>Production-grade PySpark auditing, optimization, and governance framework.</em>
+  <em>Production-grade PySpark auditing, optimization, and governance framework</em>
 </p>
 
 <p align="center">
@@ -36,7 +36,7 @@
 
 ---
 
-SparkGuardian detects PySpark anti-patterns, analyzes execution plans, generates prioritized remediation plans, and integrates into CI/CD pipelines — all **100% offline**, no cloud APIs, no source code exfiltration.
+SparkGuardian detects PySpark anti-patterns, analyzes execution plans, generates prioritized remediation plans, and integrates into CI/CD pipelines. All **100% offline**, no cloud APIs, no source code exfiltration
 
 ## Table of Contents
 
@@ -60,18 +60,18 @@ SparkGuardian detects PySpark anti-patterns, analyzes execution plans, generates
 
 | Feature | Description |
 |---------|-------------|
-| **Static AST Analysis** | Deterministic analysis via `libcst` — never executes user code |
+| **Static AST Analysis** | Deterministic analysis via `libcst` : never executes user code |
 | **Execution Plan Analysis** | Parses `df.explain()` output, detects shuffles / CartesianProduct / AQE |
 | **Safe Auto-Refactoring** | Rewrites code with backup, dry-run preview, interactive mode |
 | **Local AI Assistant** | Ollama-powered explanations, structured analysis, remediation plans |
 | **AI Chat Session** | Interactive multi-turn chat about findings with history management |
-| **RAG Knowledge Base** | 24 entries from official Apache Spark 4.1.1 docs — no external vector DB |
-| **Performance Scoring** | 0–100 score across reliability, cost, and clarity dimensions |
-| **CI/CD Integration** | Exit codes 0/1/2 — GitHub Actions, GitLab CI, Jenkins |
+| **RAG Knowledge Base** | 24 entries from official Apache Spark 4.1.1 docs : no external vector DB |
+| **Performance Scoring** | 0-100 score across reliability - cost - and clarity dimensions |
+| **CI/CD Integration** | Exit codes 0/1/2 - GitHub Actions, GitLab CI, Jenkins |
 | **Rule Governance** | Enable/disable rules, override severity, per-project config (TOML/YAML) |
 | **Ignore System** | `# cy:ignore CY008` inline and block suppression with audit trail |
 | **Rich Reporting** | Terminal, JSON, Markdown, HTML, **SARIF v2.1.0** |
-| **Cloud Cost Estimator** | Translates anti-patterns into **$$$ waste** on AWS EMR / Databricks / GCP / Azure |
+| **Cloud Cost Estimator** | Translates anti-patterns into **$waste** on AWS EMR / Databricks / GCP / Azure |
 | **Audit History** | Longitudinal tracking with regression detection + CSV export |
 
 ---
@@ -99,7 +99,7 @@ sparkguardian --help             # 9 commands
 sparkguardian analyze app.py
 ```
 
-**Requirements:** Python 3.11+ · Tested on 3.11, 3.12, 3.13.
+**Requirements:** Python 3.11+ - Tested on 3.11 / 3.12 / 3.13
 
 ---
 
@@ -154,34 +154,34 @@ sparkguardian history --csv evolution.csv          # research export
 
 ## Rules
 
-### Static — AST Analysis (16 rules)
+### Static - AST Analysis (16 rules)
 
 | Rule | Title | Severity | Impact | Autofix |
 |------|-------|----------|--------|:-------:|
-| CY001 | `.collect()` — driver memory risk | HIGH | RELIABILITY | |
-| CY002 | `.toPandas()` — large local materialization | HIGH | RELIABILITY | |
-| CY003 | `.count()` abuse — full scan triggered | MEDIUM | COST | |
+| CY001 | `.collect()` - driver memory risk | HIGH | RELIABILITY | |
+| CY002 | `.toPandas()` - large local materialization | HIGH | RELIABILITY | |
+| CY003 | `.count()` abuse - full scan triggered | MEDIUM | COST | |
 | CY004 | Spark action inside loop | **CRITICAL** | RELIABILITY | |
 | CY005 | `.show()` in production code | LOW | RELIABILITY | |
 | CY008 | `repartition(1)` detected | HIGH | COST | ✓ |
 | CY009 | Chained `withColumn()` (5+) | MEDIUM | COST | |
-| CY010 | Implicit join — missing `how=` | LOW | CLARITY | |
-| CY011 | `select("*")` — broad column selection | LOW | CLARITY | |
-| CY012 | `cache()`/`persist()` — verify necessity | LOW | COST | |
+| CY010 | Implicit join - missing `how=` | LOW | CLARITY | |
+| CY011 | `select("*")` - broad column selection | LOW | CLARITY | |
+| CY012 | `cache()`/`persist()` - verify necessity | LOW | COST | |
 | CY013 | Repeated scan of same data source | HIGH | COST | |
-| CY014 | `filter()` after `groupBy()` — reorder | MEDIUM | COST | |
-| CY016 | `crossJoin()` — explicit CartesianProduct | HIGH | COST | |
-| CY017 | `distinct()` — full shuffle | MEDIUM | COST | |
-| CY018 | `orderBy()` without `limit()` — global sort | MEDIUM | COST | |
-| CY020 | Python UDF — use native SQL functions | HIGH | COST | |
+| CY014 | `filter()` after `groupBy()` - reorder | MEDIUM | COST | |
+| CY016 | `crossJoin()` - explicit CartesianProduct | HIGH | COST | |
+| CY017 | `distinct()` - full shuffle | MEDIUM | COST | |
+| CY018 | `orderBy()` without `limit()` - global sort | MEDIUM | COST | |
+| CY020 | Python UDF - use native SQL functions | HIGH | COST | |
 
-### Dynamic — Execution Plan (5 rules)
+### Dynamic - Execution Plan (5 rules)
 
 | Rule | Title | Severity | Impact |
 |------|-------|----------|--------|
 | CY050 | `CartesianProduct` node detected | **CRITICAL** | COST |
 | CY051 | Excessive shuffle (`Exchange`) nodes | HIGH | COST |
-| CY052 | `SortMergeJoin` — broadcast opportunity | MEDIUM | COST |
+| CY052 | `SortMergeJoin` - broadcast opportunity | MEDIUM | COST |
 | CY053 | Window function without `partitionBy` | HIGH | COST |
 | CY054 | AQE (`AdaptiveSparkPlan`) not active | MEDIUM | COST |
 
@@ -200,7 +200,7 @@ df_single.write.parquet("output/")
 # cy:ignore-end CY008
 ```
 
-Ignored findings remain in reports as suppressed (use `--show-ignored`).
+Ignored findings remain in reports as suppressed (use `--show-ignored`)
 
 ---
 
@@ -227,7 +227,7 @@ enabled = false
 
 ## Local AI Setup
 
-All inference runs locally via [Ollama](https://ollama.ai). **No data leaves your machine.**
+All inference runs locally via [Ollama](https://ollama.ai). **No data leaves your machine**
 
 ```bash
 curl -fsSL https://ollama.ai/install.sh | sh
@@ -268,11 +268,11 @@ RemediationPlanner
 
 SparkKnowledgeBase (RAG)
 ├── 24 entries from official Apache Spark 4.1.1 documentation
-│   tuning.html · sql-performance-tuning.html · rdd-programming-guide.html
-├── query(question, rule_id) — lookup by rule_id or keyword scoring
-├── query_with_config(rule_id) → (content, config_params[])
-├── get_config_params(rule_id) → list[str]
-└── sources() → list[str]
+│   tuning.html / sql-performance-tuning.html / rdd-programming-guide.html
+├── query(question, rule_id) - lookup by rule_id or keyword scoring
+├── query_with_config(rule_id) => (content, config_params[])
+├── get_config_params(rule_id) => list[str]
+└── sources() => list[str]
 ```
 
 ---
@@ -293,12 +293,12 @@ sparkguardian cost app.py --json   # FinOps integration
 
 **Pricing methodology (2025-2026 baseline):**
 - AWS EMR on-demand: ~$0.063/vCPU-hour
-- Databricks DBU: $0.40/DBU-hour — ×1.3 vs EMR
-- GCP Dataproc: ×0.9 vs EMR · Azure Synapse: ×1.1 vs EMR
+- Databricks DBU: $0.40/DBU-hour - ×1.3 vs EMR
+- GCP Dataproc: ×0.9 vs EMR / Azure Synapse: ×1.1 vs EMR
 - S3: $0.023/GB stored + $0.005/1k GET requests
 - Cross-AZ egress: $0.09/GB
 
-Each rule has a calibrated cost model factoring severity, occurrence count (sub-linear), and workload scale.
+Each rule has a calibrated cost model factoring severity, occurrence count (sub-linear), and workload scale
 
 ---
 
@@ -322,7 +322,7 @@ Snapshots stored in `.sparkguardian-history.json` with git commit/branch metadat
 
 ## SARIF Output
 
-Native integration with GitHub Code Scanning, GitLab SAST, Azure DevOps, SonarQube.
+Native integration with GitHub Code Scanning, GitLab SAST, Azure DevOps, SonarQube
 
 ```yaml
 - name: SparkGuardian
@@ -332,7 +332,7 @@ Native integration with GitHub Code Scanning, GitLab SAST, Azure DevOps, SonarQu
     sarif_file: sparkguardian.sarif
 ```
 
-Findings appear directly in GitHub **Security** tab with severity-graded PR annotations.
+Findings appear directly in GitHub **Security** tab with severity-graded PR annotations
 
 ---
 
@@ -343,7 +343,7 @@ Findings appear directly in GitHub **Security** tab with severity-graded PR anno
 ```yaml
 - name: SparkGuardian Audit
   run: sparkguardian analyze . --json > report.json
-  # Exit 1 on CRITICAL → build fails automatically
+  # Exit 1 on CRITICAL => build fails automatically
 ```
 
 Full example: [`.github/workflows/sparkguardian.yml`](.github/workflows/sparkguardian.yml)
@@ -359,7 +359,7 @@ Full example: [`ci/gitlab-ci.yml`](ci/gitlab-ci.yml)
 
 ### Jenkins
 
-See [`ci/Jenkinsfile`](ci/Jenkinsfile) for a pipeline with HTML report archiving.
+See [`ci/Jenkinsfile`](ci/Jenkinsfile) for a pipeline with HTML report archiving
 
 ---
 
@@ -406,7 +406,7 @@ sparkguardian/
 
 ### Future: Rust Acceleration <img alt="Rust (planned)" src="https://img.shields.io/badge/Rust-planned-CE412B?logo=rust&logoColor=white" />
 
-The `parser/` layer is intentionally isolated for future rewrite in Rust via **PyO3 / maturin**. The rule engine and reporting layers have no parser dependency — drop-in acceleration without breaking the public API.
+The `parser/` layer is intentionally isolated for future rewrite in Rust via **PyO3 / maturin**. The rule engine and reporting layers have no parser dependency - drop-in acceleration without breaking the public API
 
 ---
 
@@ -418,8 +418,6 @@ pytest tests/ -v
 pytest tests/test_ast.py -v               # specific module
 pytest tests/ --cov=sparkguardian         # with coverage
 ```
-
-**375 tests · 0 failures · 0 warnings · 0 ruff errors · ~0.5s**
 
 | Test file | Covers |
 |-----------|--------|
@@ -441,14 +439,6 @@ pytest tests/ --cov=sparkguardian         # with coverage
 | `test_cost.py` | Cloud cost estimator (4 clouds, workload scaling) |
 | `test_sarif.py` | SARIF v2.1.0 format compliance, severity mapping |
 | `test_history.py` | Audit history, CSV export, regression detection |
-
-### Build & Publish
-
-```bash
-python -m build                  # creates dist/*.whl + *.tar.gz
-twine check dist/*               # validate before upload
-twine upload dist/*              # publish to PyPI
-```
 
 ---
 
