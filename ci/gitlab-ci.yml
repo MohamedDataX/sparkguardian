@@ -1,0 +1,11 @@
+sparkguardian:
+  stage: test
+  image: python:3.11-slim
+  script:
+    - pip install sparkguardian
+    - sparkguardian analyze . --json > report.json
+  artifacts:
+    paths:
+      - report.json
+    expire_in: 1 week
+  allow_failure: false

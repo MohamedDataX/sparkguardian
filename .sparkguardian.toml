@@ -1,0 +1,17 @@
+[sparkguardian]
+fail_on_critical = true
+fail_on_high = false
+warning_threshold = 10
+ignore_paths = ["tests/", "examples/"]
+
+[rules.CY003]
+enabled = true
+severity = "MEDIUM"
+
+[rules.CY005]
+enabled = true
+severity = "LOW"
+
+[rules.CY008]
+enabled = true
+severity = "HIGH"
