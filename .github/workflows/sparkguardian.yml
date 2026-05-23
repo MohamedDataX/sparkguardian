@@ -1,0 +1,33 @@
+name: SparkGuardian Audit
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install SparkGuardian
+        run: pip install sparkguardian
+
+      - name: Run SparkGuardian audit
+        run: sparkguardian analyze . --json > sparkguardian-report.json
+        # Exit code 1 = CRITICAL issues → CI fails
+        # Exit code 2 = warnings only → CI passes (adjust as needed)
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sparkguardian-report
+          path: sparkguardian-report.json
