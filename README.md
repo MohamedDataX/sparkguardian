@@ -10,9 +10,9 @@
 
 <p align="center">
   <a href="https://pypi.org/project/sparkguardian/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/sparkguardian?color=blue&label=PyPI" /></a>
-  <a href="https://pypi.org/project/sparkguardian/"><img alt="Downloads" src="https://img.shields.io/pypi/dm/sparkguardian?color=blue&label=downloads" /></a>
-  <img alt="Tests" src="https://img.shields.io/badge/tests-375%20passed-brightgreen" />
-  <img alt="Ruff" src="https://img.shields.io/badge/ruff-clean-brightgreen" />
+<a href="https://pypi.org/project/sparkguardian/">
+  <img alt="Downloads" src="https://img.shields.io/badge/downloads-5-blue" />
+</a>
   <img alt="Rules" src="https://img.shields.io/badge/rules-21-blue" />
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-green" /></a>
 </p>
@@ -156,14 +156,14 @@ sparkguardian history --csv evolution.csv          # research export
 
 ### Static - AST Analysis (16 rules)
 
-| Rule | Title | Severity | Impact | Autofix |
+| Rule | Title | Severity | Impact |  |
 |------|-------|----------|--------|:-------:|
 | CY001 | `.collect()` - driver memory risk | HIGH | RELIABILITY | |
 | CY002 | `.toPandas()` - large local materialization | HIGH | RELIABILITY | |
 | CY003 | `.count()` abuse - full scan triggered | MEDIUM | COST | |
 | CY004 | Spark action inside loop | **CRITICAL** | RELIABILITY | |
 | CY005 | `.show()` in production code | LOW | RELIABILITY | |
-| CY008 | `repartition(1)` detected | HIGH | COST | ✓ |
+| CY008 | `repartition(1)` detected | HIGH | COST |  |
 | CY009 | Chained `withColumn()` (5+) | MEDIUM | COST | |
 | CY010 | Implicit join - missing `how=` | LOW | CLARITY | |
 | CY011 | `select("*")` - broad column selection | LOW | CLARITY | |
