@@ -1,0 +1,6 @@
+APP_NAME = "SparkGuardian"
+APP_VERSION = "0.1.1"
+DEFAULT_CONFIG_FILE = ".sparkguardian.toml"
+EXIT_SUCCESS = 0
+EXIT_CRITICAL = 1
+EXIT_WARNINGS = 2

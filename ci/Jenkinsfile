@@ -1,0 +1,52 @@
+pipeline {
+    agent {
+        docker {
+            image 'python:3.11-slim'
+        }
+    }
+
+    environment {
+        REPORT_PATH = 'sparkguardian-report.json'
+        HTML_REPORT  = 'sparkguardian-report.html'
+    }
+
+    stages {
+        stage('Install SparkGuardian') {
+            steps {
+                sh 'pip install sparkguardian'
+            }
+        }
+
+        stage('Audit PySpark Code') {
+            steps {
+                script {
+                    def exitCode = sh(
+                        script: "sparkguardian analyze . --json > ${REPORT_PATH} --html ${HTML_REPORT}",
+                        returnStatus: true
+                    )
+                    // Exit code 1 = CRITICAL → fail build
+                    // Exit code 2 = warnings only → unstable
+                    if (exitCode == 1) {
+                        error "SparkGuardian: CRITICAL issues found. Build failed."
+                    } else if (exitCode == 2) {
+                        unstable "SparkGuardian: warnings detected."
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: "${REPORT_PATH}, ${HTML_REPORT}", allowEmptyArchive: true
+            publishHTML(target: [
+                allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: '.',
+                reportFiles: "${HTML_REPORT}",
+                reportName: 'SparkGuardian Report'
+            ])
+        }
+    }
+}
