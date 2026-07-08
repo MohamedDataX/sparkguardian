@@ -13,8 +13,8 @@ services:
         generateValue: true
       - key: ADMIN_TOKEN         # protects /admin
         generateValue: true
-      - key: DATABASE_PATH       # persisted on the disk below
-        value: /data/sparkguardian.db
+      - key: DATABASE_PATH       # /tmp is writable; NOTE: free tier has no
+        value: /tmp/sparkguardian.db  # persistent disk -> DB resets on restart/redeploy
       - key: PUBLIC_URL          # set to your Render URL after first deploy
         sync: false
       - key: STRIPE_SECRET_KEY   # test-mode keys; leave blank to disable billing
@@ -23,7 +23,7 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
-    disk:                        # keeps the SQLite DB across deploys/restarts
-      name: data
-      mountPath: /data
-      sizeGB: 1
+# NOTE: Render's free web service sleeps after ~15 min idle and has no
+# persistent disk. For durable licenses, upgrade the instance and re-add a
+# `disk:` block (mountPath /data, DATABASE_PATH=/data/sparkguardian.db) or
+# switch to Postgres.
