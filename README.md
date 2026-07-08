@@ -51,6 +51,8 @@ SparkGuardian detects PySpark anti-patterns, analyzes execution plans, generates
 - [Audit History](#audit-history)
 - [SARIF Output](#sarif-output)
 - [CI/CD Integration](#cicd-integration)
+- [Licensing & Web Portal](#licensing--web-portal)
+- [Deployment](#deployment)
 - [Architecture](#architecture)
 - [Development](#development)
 
@@ -59,385 +61,144 @@ SparkGuardian detects PySpark anti-patterns, analyzes execution plans, generates
 ## Features
 
 | Feature | Description |
-|---------|-------------|
-| **Static AST Analysis** | Deterministic analysis via `libcst` : never executes user code |
-| **Execution Plan Analysis** | Parses `df.explain()` output, detects shuffles / CartesianProduct / AQE |
-| **Safe Auto-Refactoring** | Rewrites code with backup, dry-run preview, interactive mode |
-| **Local AI Assistant** | Ollama-powered explanations, structured analysis, remediation plans |
-| **AI Chat Session** | Interactive multi-turn chat about findings with history management |
-| **RAG Knowledge Base** | 24 entries from official Apache Spark 4.1.1 docs : no external vector DB |
-| **Performance Scoring** | 0-100 score across reliability - cost - and clarity dimensions |
-| **CI/CD Integration** | Exit codes 0/1/2 - GitHub Actions, GitLab CI, Jenkins |
-| **Rule Governance** | Enable/disable rules, override severity, per-project config (TOML/YAML) |
-| **Ignore System** | `# cy:ignore CY008` inline and block suppression with audit trail |
-| **Rich Reporting** | Terminal, JSON, Markdown, HTML, **SARIF v2.1.0** |
-| **Cloud Cost Estimator** | Translates anti-patterns into **$waste** on AWS EMR / Databricks / GCP / Azure |
-| **Audit History** | Longitudinal tracking with regression detection + CSV export |
-
----
+|---|---|
+| Static AST analysis | `libcst`, never executes your code — 21 rules |
+| Execution-plan analysis | shuffles, CartesianProduct, AQE from `df.explain()` |
+| Safe auto-refactor | backup + dry-run preview |
+| Local AI (Ollama) | explanations, remediation, offline RAG |
+| Cloud cost estimator | $ waste on EMR / Databricks / GCP / Azure |
+| Score + history | 0–100 score, regression detection |
+| Reports | terminal, JSON, Markdown, HTML, SARIF v2.1.0 |
+| CI/CD | exit codes 0/1/2 — GitHub Actions, GitLab, Jenkins |
+| Licensing | trial tokens, offline activation, Stripe billing |
 
 ## Installation
 
 ```bash
-pip install sparkguardian              # core
-pip install "sparkguardian[ai]"        # + local Ollama integration
+pip install sparkguardian
+pip install "sparkguardian[ai]"    # + local Ollama
 ```
 
-**From source:**
-
-```bash
-git clone https://github.com/MohamedDataX/sparkguardian
-cd sparkguardian
-pip install -e ".[dev]"
-```
-
-**Verify:**
-
-```bash
-sparkguardian --version          # SparkGuardian v0.1.1
-sparkguardian --help             # 9 commands
-sparkguardian analyze app.py
-```
-
-**Requirements:** Python 3.11+ - Tested on 3.11 / 3.12 / 3.13
-
----
+Python 3.11+.
 
 ## Quick Start
 
 ```bash
-# Analysis (5 output formats)
-sparkguardian analyze app.py                       # terminal
-sparkguardian analyze app.py --json                # CI integration
-sparkguardian analyze app.py --html report.html    # dashboard
-sparkguardian analyze app.py --md report.md        # GitHub PR comment
-sparkguardian analyze app.py --sarif report.sarif  # GitHub Code Scanning
-
-# Auto-fix
-sparkguardian fix app.py --dry-run                 # preview diff
-sparkguardian fix app.py --interactive             # per-fix prompt
-sparkguardian fix app.py                           # apply + backup
-
-# Execution plan
+sparkguardian activate             # paste SG-… token (7-day free trial)
+sparkguardian analyze app.py       # --json --html --md --sarif
+sparkguardian fix app.py --dry-run
+sparkguardian cost app.py --cloud databricks
 sparkguardian explain-plan plan.txt
-
-# Rules + config
-sparkguardian list-rules
-
-# AI (Ollama)
-sparkguardian ai-status
-sparkguardian analyze app.py --ai
-sparkguardian remediation app.py
-sparkguardian chat app.py
-
-# Cloud cost
-sparkguardian cost app.py
-sparkguardian cost app.py --data-tb 5 --nodes 30 --cloud databricks
-
-# History
-sparkguardian analyze app.py --history             # record snapshot
-sparkguardian history                              # view evolution
-sparkguardian history --csv evolution.csv          # research export
+sparkguardian remediation app.py   # AI (needs Ollama)
+sparkguardian license              # status
 ```
-
----
-
-## Exit Codes
-
-| Code | Meaning | CI behavior |
-|------|---------|-------------|
-| `0` | No issues | Build passes |
-| `1` | CRITICAL issue found | Build **fails** |
-| `2` | Warnings only | Build passes (configurable) |
-
----
 
 ## Rules
 
-### Static - AST Analysis (16 rules)
+21 rules — static AST (16) + execution-plan (5). List them:
 
-| Rule | Title | Severity | Impact |  |
-|------|-------|----------|--------|:-------:|
-| CY001 | `.collect()` - driver memory risk | HIGH | RELIABILITY | |
-| CY002 | `.toPandas()` - large local materialization | HIGH | RELIABILITY | |
-| CY003 | `.count()` abuse - full scan triggered | MEDIUM | COST | |
-| CY004 | Spark action inside loop | **CRITICAL** | RELIABILITY | |
-| CY005 | `.show()` in production code | LOW | RELIABILITY | |
-| CY008 | `repartition(1)` detected | HIGH | COST |  |
-| CY009 | Chained `withColumn()` (5+) | MEDIUM | COST | |
-| CY010 | Implicit join - missing `how=` | LOW | CLARITY | |
-| CY011 | `select("*")` - broad column selection | LOW | CLARITY | |
-| CY012 | `cache()`/`persist()` - verify necessity | LOW | COST | |
-| CY013 | Repeated scan of same data source | HIGH | COST | |
-| CY014 | `filter()` after `groupBy()` - reorder | MEDIUM | COST | |
-| CY016 | `crossJoin()` - explicit CartesianProduct | HIGH | COST | |
-| CY017 | `distinct()` - full shuffle | MEDIUM | COST | |
-| CY018 | `orderBy()` without `limit()` - global sort | MEDIUM | COST | |
-| CY020 | Python UDF - use native SQL functions | HIGH | COST | |
-
-### Dynamic - Execution Plan (5 rules)
-
-| Rule | Title | Severity | Impact |
-|------|-------|----------|--------|
-| CY050 | `CartesianProduct` node detected | **CRITICAL** | COST |
-| CY051 | Excessive shuffle (`Exchange`) nodes | HIGH | COST |
-| CY052 | `SortMergeJoin` - broadcast opportunity | MEDIUM | COST |
-| CY053 | Window function without `partitionBy` | HIGH | COST |
-| CY054 | AQE (`AdaptiveSparkPlan`) not active | MEDIUM | COST |
-
----
+```bash
+sparkguardian list-rules
+```
 
 ## Ignore System
 
-```python
-# Inline
-df.repartition(1)  # cy:ignore CY008
+Suppress inline or by block, with audit trail:
 
-# Block
+```python
+df.collect()                       # cy:ignore CY001
 # cy:ignore-start CY008
-df_single = df.repartition(1)
-df_single.write.parquet("output/")
+...
 # cy:ignore-end CY008
 ```
 
-Ignored findings remain in reports as suppressed (use `--show-ignored`)
-
----
-
 ## Configuration
 
-Create `.sparkguardian.toml` (or `.yaml`) at project root:
-
-```toml
-[sparkguardian]
-fail_on_critical = true
-fail_on_high = false
-warning_threshold = 10
-ignore_paths = ["tests/", "examples/"]
-
-[rules.CY008]
-enabled = true
-severity = "HIGH"
-
-[rules.CY005]
-enabled = false
-```
-
----
+`.sparkguardian.toml` — enable/disable rules, override severity, ignore paths, CI thresholds.
 
 ## Local AI Setup
 
-All inference runs locally via [Ollama](https://ollama.ai). **No data leaves your machine**
+Optional, 100% local via Ollama:
 
 ```bash
-curl -fsSL https://ollama.ai/install.sh | sh
-ollama pull deepseek-coder:6.7b   # recommended
-ollama serve
+pip install "sparkguardian[ai]"
+ollama pull llama3.1
 sparkguardian ai-status
 ```
 
-### Supported Models
-
-| Model | Pull command | Notes |
-|-------|-------------|-------|
-| DeepSeek-Coder 6.7B | `ollama pull deepseek-coder:6.7b` | **Recommended** |
-| CodeLlama 7B | `ollama pull codellama:7b` | Good code quality |
-| Llama 3 8B | `ollama pull llama3:8b` | General purpose |
-| Mistral 7B | `ollama pull mistral:7b` | Fast inference |
-
-Auto-selects first available model from this list.
-
-### AI Architecture
-
-```
-LocalLLM
-├── LRU response cache (128 entries, hit-rate tracking)
-├── System prompt injection (role anchor)
-├── Structured JSON output parsing (AIAnalysis dataclass)
-├── Streaming support (token-by-token terminal output)
-└── Auto model selection
-
-AISession (multi-turn chat)
-├── Conversation history with automatic trimming
-├── Context injection (RAG knowledge base)
-└── Reset / turn counting
-
-RemediationPlanner
-├── LLM-driven: priority_order, effort_estimate, quick_wins, blockers
-└── Heuristic fallback (deterministic, works without Ollama)
-
-SparkKnowledgeBase (RAG)
-├── 24 entries from official Apache Spark 4.1.1 documentation
-│   tuning.html / sql-performance-tuning.html / rdd-programming-guide.html
-├── query(question, rule_id) - lookup by rule_id or keyword scoring
-├── query_with_config(rule_id) => (content, config_params[])
-├── get_config_params(rule_id) => list[str]
-└── sources() => list[str]
-```
-
----
-
 ## Cloud Cost Estimator
 
-Translates detected anti-patterns into **estimated USD waste** on major cloud providers.
+Turns anti-patterns into $ waste per cloud:
 
 ```bash
-sparkguardian cost examples/bad_pipeline.py
-# 💸 Estimated waste: $2,407/month ($28,884/year)
-
-sparkguardian cost prod/ --data-tb 50 --nodes 100 --cloud databricks
-# 💸 Estimated waste: $156,420/month ($1,877,040/year)
-
-sparkguardian cost app.py --json   # FinOps integration
+sparkguardian cost app.py --cloud databricks
+# 💸 Estimated waste: $2,407/month
 ```
-
-**Pricing methodology (2025-2026 baseline):**
-- AWS EMR on-demand: ~$0.063/vCPU-hour
-- Databricks DBU: $0.40/DBU-hour - ×1.3 vs EMR
-- GCP Dataproc: ×0.9 vs EMR / Azure Synapse: ×1.1 vs EMR
-- S3: $0.023/GB stored + $0.005/1k GET requests
-- Cross-AZ egress: $0.09/GB
-
-Each rule has a calibrated cost model factoring severity, occurrence count (sub-linear), and workload scale
-
----
 
 ## Audit History
 
-Track quality evolution across commits, releases, or daily runs.
+Track score over time, flag regressions:
 
 ```bash
-sparkguardian analyze . --history             # record snapshot
-sparkguardian history                         # view evolution
-# ↘️ Latest delta: -8.5
-# ⚠️ REGRESSION DETECTED (delta > -5)
-
-sparkguardian history --csv evolution.csv     # research export
-sparkguardian history --target src/foo.py    # filter
+sparkguardian analyze app.py --history
+sparkguardian history app.py
 ```
-
-Snapshots stored in `.sparkguardian-history.json` with git commit/branch metadata.
-
----
 
 ## SARIF Output
 
-Native integration with GitHub Code Scanning, GitLab SAST, Azure DevOps, SonarQube
+GitHub Code Scanning ready:
 
-```yaml
-- name: SparkGuardian
-  run: sparkguardian analyze . --sarif sparkguardian.sarif
-- uses: github/codeql-action/upload-sarif@v3
-  with:
-    sarif_file: sparkguardian.sarif
+```bash
+sparkguardian analyze src/ --sarif results.sarif
 ```
-
-Findings appear directly in GitHub **Security** tab with severity-graded PR annotations
-
----
 
 ## CI/CD Integration
 
-### GitHub Actions
-
 ```yaml
-- name: SparkGuardian Audit
-  run: sparkguardian analyze . --json > report.json
-  # Exit 1 on CRITICAL => build fails automatically
+- run: pip install sparkguardian
+- run: sparkguardian analyze src/ --sarif results.sarif
 ```
 
-Full example: [`.github/workflows/sparkguardian.yml`](.github/workflows/sparkguardian.yml)
+Exit **0** clean · **1** critical · **2** warnings. GitLab / Jenkins samples in `ci/`.
 
-### GitLab CI
+## Licensing & Web Portal
 
-```yaml
-sparkguardian:
-  script: sparkguardian analyze . --json > report.json
+`application/` — FastAPI landing page + license portal + Stripe billing. **Live:** <https://sparkguardian-portal.fly.dev>
+
+- 7-day free-trial tokens (name + email → signed `SG-…`)
+- CLI activates online once, caches locally, checks expiry **offline**
+- Types: trial / monthly / lifetime / enterprise
+- Stripe Checkout ($10/mo Pro) + webhook auto-issues Pro
+- Admin dashboard: list / revoke / stats
+
+```bash
+cd application && ./run.sh          # http://localhost:8000  (/admin, /docs)
 ```
 
-Full example: [`ci/gitlab-ci.yml`](ci/gitlab-ci.yml)
+## Deployment
 
-### Jenkins
+Full app on any container host:
 
-See [`ci/Jenkinsfile`](ci/Jenkinsfile) for a pipeline with HTML report archiving
+- **Fly.io** — `cd application && fly deploy` (`fly.toml` included)
+- **Render** — Blueprint via `render.yaml`
 
----
+See [`application/README.md`](application/README.md).
 
 ## Architecture
 
 ```
-sparkguardian/
-├── cli.py                    # Typer CLI (9 commands)
-├── config.py                 # TOML/YAML loader
-├── constants.py
-│
-├── parser/                   # libcst static + execution plan analysis
-│   ├── ast_analyzer.py
-│   ├── plan_analyzer.py
-│   ├── execution_parser.py
-│   ├── ignore_handler.py     # cy:ignore engine
-│   └── node_extractors.py
-│
-├── rules/                    # 16 static + 5 dynamic = 21 rules
-│   ├── base.py               # BaseRule ABC
-│   ├── registry.py           # @register decorator
-│   ├── static_rules.py
-│   └── dynamic_rules.py
-│
-├── models/                   # Issue, Report, ExecutionNode
-├── rewriter/                 # SafeRewriter + libcst transformers
-│
-├── ai/                       # Local Ollama integration
-│   ├── local_llm.py          # LLM client (cache + streaming)
-│   ├── session.py            # Multi-turn chat history
-│   ├── remediation.py        # LLM + heuristic fallback
-│   ├── structured.py         # AIAnalysis JSON parser
-│   ├── cache.py              # LRU AIResponseCache
-│   ├── rag.py                # SparkKnowledgeBase (24 entries)
-│   └── prompts.py            # Versioned prompt library
-│
-├── reporting/                # terminal / json / md / html / SARIF
-├── scoring/                  # 0–100 performance score
-├── cost/                     # Cloud cost models (EMR/Databricks/GCP/Azure)
-├── history/                  # Longitudinal audit snapshots
-├── ci/                       # Exit code logic
-└── utils/                    # logger, file_utils
+sparkguardian/   parser · rules · rewriter · ai · cost · scoring · history · reporting · licensing · cli
+application/     backend (FastAPI)  ·  frontend (static portal)
 ```
-
----
 
 ## Development
 
 ```bash
 pip install -e ".[dev]"
-pytest tests/ -v
-pytest tests/test_ast.py -v               # specific module
-pytest tests/ --cov=sparkguardian         # with coverage
+pytest                 # 375 tests
+ruff check . && mypy sparkguardian
 ```
-
-| Test file | Covers |
-|-----------|--------|
-| `test_ai.py` | LLM cache, session, structured output, remediation, prompts |
-| `test_ast.py` | All 16 static rules, analyzer edge cases, ignore system |
-| `test_ci.py` | Exit codes (0/1/2) |
-| `test_config.py` | TOML, YAML, defaults, rule overrides |
-| `test_file_utils.py` | backup_file, collect_python_files |
-| `test_ignore.py` | cy:ignore inline and block directives |
-| `test_models.py` | Issue, Location, AnalysisReport, ExecutionNode |
-| `test_node_extractors.py` | NodeType classification, plan parser |
-| `test_plan.py` | Dynamic rules, execution plan analysis |
-| `test_rag.py` | Knowledge base entries, keyword search, config params, sources |
-| `test_registry.py` | Rule registry, @register decorator |
-| `test_reporting.py` | JSON, Markdown, HTML reporters |
-| `test_rewriter.py` | CST transformer, diff generator |
-| `test_safe_rewriter.py` | SafeRewriter dry-run, apply, backup |
-| `test_scoring.py` | 0–100 score engine, penalty matrix |
-| `test_cost.py` | Cloud cost estimator (4 clouds, workload scaling) |
-| `test_sarif.py` | SARIF v2.1.0 format compliance, severity mapping |
-| `test_history.py` | Audit history, CSV export, regression detection |
-
----
 
 ## License
 
-[MIT](LICENSE) © SparkGuardian Contributors
+MIT — see [LICENSE](LICENSE).
