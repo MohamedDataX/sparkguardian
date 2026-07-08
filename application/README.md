@@ -35,6 +35,29 @@ uvicorn backend.main:app --reload
 - Admin dashboard: <http://localhost:8000/admin> (use `ADMIN_TOKEN`)
 - API docs: <http://localhost:8000/docs>
 
+## Deploy
+
+The app needs a Python runtime (FastAPI backend) — **GitHub Pages cannot host it**
+(static-only, no `/api/*`). Deploy the whole app to any container/Python host.
+
+**Render (one click)** — `render.yaml` at the repo root is a ready blueprint:
+New → Blueprint → pick this repo. It provisions the service, a 1 GB disk for the
+SQLite DB, and generates `SECRET_KEY`/`ADMIN_TOKEN`. After the first deploy set
+`PUBLIC_URL` to the Render URL (and `STRIPE_*` for billing).
+
+**Docker (any host)**:
+```bash
+cd application
+docker build -t sparkguardian-portal .
+docker run -p 8000:8000 --env-file .env sparkguardian-portal
+```
+
+**Railway / Fly / Heroku-style**: `application/Procfile` runs
+`uvicorn backend.main:app --host 0.0.0.0 --port $PORT`.
+
+> SQLite lives on local disk — attach a persistent volume (Render disk above) so
+> issued licenses survive restarts.
+
 ## License tokens
 
 Signed JWTs (HS256, stdlib HMAC — no crypto dep) prefixed `SG-`. Claims: `sub`
