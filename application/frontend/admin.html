@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SparkGuardian — Admin</title>
+  <link rel="icon" href="/static/img/logo.jpeg" />
+  <link rel="stylesheet" href="/static/css/styles.css" />
+  <style>
+    .admin-wrap { max-width: 1000px; margin: 40px auto; padding: 0 24px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+    th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: .06em; }
+    td.mono { font-family: var(--mono); color: var(--accent-2); }
+    .badge { padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .badge.trial { background: var(--accent-dim); color: var(--accent-2); }
+    .badge.paid  { background: rgba(52,211,153,.15); color: var(--success); }
+    .badge.revoked { background: rgba(248,113,113,.15); color: var(--danger); }
+    .tbl-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 16px; }
+    .revoke { background: none; border: 1px solid var(--border); color: var(--danger); padding: 5px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+    .revoke:hover { border-color: var(--danger); }
+    .stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <a class="brand" href="/"><img src="/static/img/logo.jpeg" alt="" /> SparkGuardian</a>
+      <span class="nav-links"><a href="/">← Back to site</a></span>
+    </div>
+  </header>
+
+  <div class="admin-wrap">
+    <div class="section-head" style="text-align:left;margin-bottom:24px">
+      <div class="eyebrow">Admin</div>
+      <h2>License Dashboard</h2>
+    </div>
+
+    <div id="auth" class="panel" style="max-width:420px;margin:0">
+      <div class="field">
+        <label for="token">Admin token</label>
+        <input id="token" type="password" placeholder="ADMIN_TOKEN" />
+      </div>
+      <button class="btn btn-primary" id="login" style="width:100%;justify-content:center">Sign in</button>
+      <div id="auth-msg" class="msg"></div>
+    </div>
+
+    <div id="dash" hidden>
+      <div class="stats-row" id="stats"></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Created</th><th>Expires</th><th>Activations</th><th>Status</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/admin.js"></script>
+</body>
+</html>

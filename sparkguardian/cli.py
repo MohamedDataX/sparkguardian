@@ -17,8 +17,12 @@ from sparkguardian.reporting.markdown_reporter import to_markdown
 from sparkguardian.reporting.sarif_reporter import to_sarif
 from sparkguardian.reporting.terminal_reporter import print_report
 from sparkguardian.rewriter.safe_rewriter import SafeRewriter
+from sparkguardian import licensing
 from sparkguardian.scoring.score_engine import compute_score
 from sparkguardian.utils.file_utils import collect_python_files
+
+# Commands that require a valid license before running.
+_GATED_COMMANDS = {"analyze", "fix", "explain-plan", "remediation", "chat", "cost", "history"}
 
 app = typer.Typer(
     name="sparkguardian",
@@ -36,9 +40,37 @@ def _version_callback(value: bool) -> None:
 
 @app.callback()
 def main(
+    ctx: typer.Context,
     version: bool = typer.Option(False, "--version", "-v", callback=_version_callback, is_eager=True),
 ) -> None:
-    pass
+    # License gate: activates on first run, blocks when expired.
+    if ctx.invoked_subcommand in _GATED_COMMANDS:
+        try:
+            licensing.ensure_licensed(console, prompt=typer.prompt)
+        except licensing.LicenseError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(code=1) from exc
+
+
+@app.command()
+def activate(
+    token: str = typer.Argument(None, help="License token (SG-…). Prompted if omitted."),
+) -> None:
+    """Activate a SparkGuardian license token (validates online, then caches)."""
+    tok = token or typer.prompt("Enter your license token")
+    try:
+        data = licensing.activate(tok)
+    except licensing.LicenseError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    console.print("[green]License activated.[/green]")
+    console.print(licensing.status_line(data))
+
+
+@app.command("license")
+def license_status() -> None:
+    """Show current license status."""
+    console.print(licensing.status_line())
 
 
 @app.command()
