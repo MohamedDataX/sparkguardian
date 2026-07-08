@@ -28,9 +28,9 @@ class CostModel:
     cloud_resource: str  # "compute" | "storage" | "network" | "io"
 
 
-# ---------------------------------------------------------------------------
+
 # Cost models — conservative estimates for medium workload (1 TB/day, 10 nodes)
-# ---------------------------------------------------------------------------
+
 
 _COST_MODELS: dict[str, CostModel] = {
     # Reliability — driver OOM = job crash = pipeline rerun
@@ -170,9 +170,8 @@ _COST_MODELS: dict[str, CostModel] = {
 }
 
 
-# ---------------------------------------------------------------------------
 # Workload scaling factors
-# ---------------------------------------------------------------------------
+
 
 @dataclass
 class WorkloadProfile:

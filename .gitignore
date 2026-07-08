@@ -70,7 +70,5 @@ Thumbs.db
 sparkguardian-report.*
 
 # local Cld/files
-.claude/
 test1.py
 sparkguardian-report.json
-examples/
