@@ -404,10 +404,6 @@ sparkguardian/
 └── utils/                    # logger, file_utils
 ```
 
-### Future: Rust Acceleration <img alt="Rust (planned)" src="https://img.shields.io/badge/Rust-planned-CE412B?logo=rust&logoColor=white" />
-
-The `parser/` layer is intentionally isolated for future rewrite in Rust via **PyO3 / maturin**. The rule engine and reporting layers have no parser dependency - drop-in acceleration without breaking the public API
-
 ---
 
 ## Development
