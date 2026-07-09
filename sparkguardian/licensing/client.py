@@ -14,7 +14,7 @@ LICENSE_DIR = Path(os.getenv("SPARKGUARDIAN_HOME", str(Path.home() / ".sparkguar
 LICENSE_FILE = LICENSE_DIR / "license.json"
 
 # Licensing server (the `application/` backend). Override for self-hosting.
-API_URL = os.getenv("SPARKGUARDIAN_API_URL", "http://localhost:8000").rstrip("/")
+API_URL = os.getenv("SPARKGUARDIAN_API_URL", "https://sparkguardian-portal.fly.dev").rstrip("/")
 
 UPGRADE_MSG = (
     "Your free trial has expired.\n\n"
