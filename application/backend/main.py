@@ -1,7 +1,7 @@
 """SparkGuardian licensing portal — FastAPI app.
 
-Serves the static landing page and the license/billing/admin JSON API from a
-single process. Run with::
+Serves the static landing page and the license/admin JSON API from a single
+process. Run with::
 
     uvicorn backend.main:app --reload
 """
@@ -13,9 +13,8 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.config import settings
 from backend.database import init_db
-from backend.routes import admin, billing, licenses
+from backend.routes import admin, licenses
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
@@ -28,13 +27,12 @@ def _startup() -> None:
 
 
 app.include_router(licenses.router)
-app.include_router(billing.router)
 app.include_router(admin.router)
 
 
 @app.get("/api/health")
 def health() -> dict[str, object]:
-    return {"status": "ok", "stripe_enabled": settings.stripe_enabled}
+    return {"status": "ok"}
 
 
 @app.get("/")

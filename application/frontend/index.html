@@ -19,9 +19,9 @@
       <nav class="nav-links">
         <a href="#features">Features</a>
         <a href="#install">Install</a>
-        <a href="#pricing">Pricing</a>
+        <a href="#open-source">Open Source</a>
         <a href="https://github.com/MohamedDataX/sparkguardian" target="_blank" rel="noopener noreferrer">GitHub</a>
-        <a class="btn btn-primary" href="#trial">Get Free Trial</a>
+        <a class="btn btn-primary" href="#token">Get Free Token</a>
       </nav>
     </div>
   </header>
@@ -29,11 +29,11 @@
   <!-- ===== Hero ===== -->
   <section class="hero container">
     <img class="hero-logo" src="/static/img/logo.jpeg" alt="SparkGuardian" />
-    <div><span class="pill"><span class="dot"></span> v0.1.1 · 100% offline</span></div>
+    <div><span class="pill"><span class="dot"></span> v0.1.2 · open source · 100% offline</span></div>
     <h1>Production-grade <span class="grad">PySpark</span><br />auditing &amp; optimization.</h1>
     <p>Catch anti-patterns, cut cloud cost, ship faster — right from your terminal.</p>
     <div class="hero-actions">
-      <a class="btn btn-primary" href="#trial">Get Free Trial</a>
+      <a class="btn btn-primary" href="#token">Get Free Token</a>
       <a class="btn btn-ghost" href="https://github.com/MohamedDataX/sparkguardian" target="_blank" rel="noopener noreferrer">Documentation</a>
     </div>
   </section>
@@ -77,19 +77,19 @@
       <div class="stat"><div class="num">21</div><div class="lbl">Rules</div></div>
       <div class="stat"><div class="num">100%</div><div class="lbl">Offline</div></div>
       <div class="stat"><div class="num">AI</div><div class="lbl">Powered</div></div>
-      <div class="stat"><div class="num">PySpark</div><div class="lbl">Focused</div></div>
+      <div class="stat"><div class="num">MIT</div><div class="lbl">Open Source</div></div>
     </div>
   </section>
 
-  <!-- ===== Free trial ===== -->
-  <section id="trial" class="container reveal">
+  <!-- ===== Free token ===== -->
+  <section id="token" class="container reveal">
     <div class="section-head">
-      <div class="eyebrow">Free Trial</div>
-      <h2>Start your 7-day trial.</h2>
-      <p>No card required. Get a token instantly.</p>
+      <div class="eyebrow">Free Token</div>
+      <h2>Get your free token.</h2>
+      <p>No card, no expiry. Generated instantly.</p>
     </div>
     <div class="panel">
-      <form id="trial-form">
+      <form id="token-form">
         <div class="field">
           <label for="name">Name</label>
           <input id="name" name="name" type="text" placeholder="Ada Lovelace" required />
@@ -98,38 +98,37 @@
           <label for="email">Email</label>
           <input id="email" name="email" type="email" placeholder="ada@company.com" required />
         </div>
-        <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center">Generate Trial Token</button>
+        <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center">Generate Free Token</button>
       </form>
-      <div id="trial-msg" class="msg"></div>
+      <div id="token-msg" class="msg"></div>
       <div id="token-out" class="token-out" hidden>
         <div class="token-box">
           <span class="tok" id="token-value"></span>
           <button class="copy-btn" id="copy-btn" type="button">Copy</button>
         </div>
-        <p class="note">Activate with: <code>sparkguardian activate</code> — expires in 7 days.</p>
+        <p class="note">Activate with: <code>sparkguardian activate</code> — never expires.</p>
       </div>
     </div>
   </section>
 
-  <!-- ===== Pricing ===== -->
-  <section id="pricing" class="container reveal">
+  <!-- ===== Open source ===== -->
+  <section id="open-source" class="container reveal">
     <div class="section-head">
-      <div class="eyebrow">Pricing</div>
-      <h2>Simple, honest pricing.</h2>
+      <div class="eyebrow">Open Source</div>
+      <h2>Free forever. MIT licensed.</h2>
     </div>
     <div class="pricing">
-      <div class="price-card">
-        <div class="plan">Trial</div>
-        <div class="amount">$0</div>
-        <ul><li>All features</li><li>7 days</li><li>No card</li></ul>
-        <a class="btn btn-ghost" href="#trial">Start Trial</a>
-      </div>
       <div class="price-card featured">
-        <div class="plan">Pro</div>
-        <div class="amount">$10<span>/month</span></div>
-        <ul><li>Everything in Trial</li><li>Unlimited use</li><li>Priority updates</li></ul>
-        <button class="btn btn-primary" id="subscribe-btn" type="button">Subscribe</button>
-        <div id="pay-msg" class="msg"></div>
+        <div class="plan">Community</div>
+        <div class="amount">$0</div>
+        <ul><li>All 21 rules</li><li>Unlimited use, no expiry</li><li>No card, ever</li><li>AI + cost estimation included</li></ul>
+        <a class="btn btn-primary" href="#token">Get Your Token</a>
+      </div>
+      <div class="price-card">
+        <div class="plan">Self-host</div>
+        <div class="amount">DIY</div>
+        <ul><li>Run your own portal</li><li>Issue your own tokens</li><li>Full source on GitHub</li></ul>
+        <a class="btn btn-ghost" href="https://github.com/MohamedDataX/sparkguardian" target="_blank" rel="noopener noreferrer">View Source</a>
       </div>
     </div>
   </section>

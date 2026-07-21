@@ -3,17 +3,17 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from backend.config import settings
 from backend.database import get_conn
 from backend.licensing import issue_token, verify_token
 
 # ttl_days per license type; None = never expires.
-TTL_DAYS: dict[str, int | None] = {
-    "trial": settings.TRIAL_DAYS,
-    "monthly": 30,
-    "lifetime": None,
-    "enterprise": 365,
-}
+#
+# SparkGuardian is open source: the only type ever issued is the free
+# `community` license, which never expires. Older `trial`/`monthly` rows from
+# the pre-open-source builds still validate normally until they lapse.
+TTL_DAYS: dict[str, int | None] = {"community": None}
+
+FREE_TYPE = "community"
 
 
 def _iso(ts: int | None) -> str | None:
@@ -22,16 +22,9 @@ def _iso(ts: int | None) -> str | None:
     return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
 
 
-def create_license(
-    name: str,
-    email: str,
-    kind: str,
-    *,
-    stripe_customer: str | None = None,
-    stripe_sub: str | None = None,
-) -> dict[str, object]:
+def create_license(name: str, email: str, kind: str = FREE_TYPE) -> dict[str, object]:
     """Issue a token of ``kind`` and persist it."""
-    ttl = TTL_DAYS.get(kind, settings.TRIAL_DAYS)
+    ttl = TTL_DAYS.get(kind)
     token, jti, exp = issue_token(name, email, kind, ttl)
     created_iso = _iso(int(datetime.now(tz=timezone.utc).timestamp()))
     expires_iso = _iso(exp)
@@ -39,11 +32,9 @@ def create_license(
     with get_conn() as conn:
         conn.execute(
             """INSERT INTO licenses
-               (jti, name, email, type, token, created_at, expires_at,
-                stripe_customer, stripe_sub)
-               VALUES (?,?,?,?,?,?,?,?,?)""",
-            (jti, name, email, kind, token, created_iso, expires_iso,
-             stripe_customer, stripe_sub),
+               (jti, name, email, type, token, created_at, expires_at)
+               VALUES (?,?,?,?,?,?,?)""",
+            (jti, name, email, kind, token, created_iso, expires_iso),
         )
     return {
         "token": token,
@@ -54,14 +45,29 @@ def create_license(
     }
 
 
-def has_active_trial(email: str) -> bool:
-    """True if this email already holds a non-revoked trial."""
+def existing_license(email: str) -> dict[str, object] | None:
+    """Return this email's live community token, if any.
+
+    Lets a user who lost their token get the same one back instead of piling up
+    duplicates. Revoked rows are ignored on purpose — see ``is_revoked``.
+    """
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT 1 FROM licenses WHERE email=? AND type='trial' AND revoked=0 LIMIT 1",
-            (email,),
+            "SELECT token, type, name, email, expires_at FROM licenses "
+            "WHERE email=? AND type=? AND revoked=0 ORDER BY id DESC LIMIT 1",
+            (email, FREE_TYPE),
         ).fetchone()
-    return row is not None
+    return dict(row) if row else None
+
+
+def is_revoked(email: str) -> bool:
+    """True if every community license this email holds has been revoked."""
+    with get_conn() as conn:
+        revoked = conn.execute(
+            "SELECT 1 FROM licenses WHERE email=? AND type=? AND revoked=1 LIMIT 1",
+            (email, FREE_TYPE),
+        ).fetchone()
+    return revoked is not None and existing_license(email) is None
 
 
 def validate(token: str) -> dict[str, object]:
@@ -117,10 +123,10 @@ def stats() -> dict[str, int]:
             "AND (expires_at IS NULL OR expires_at > ?)",
             (now_iso,),
         ).fetchone()["c"]
-        trials = conn.execute(
-            "SELECT COUNT(*) c FROM licenses WHERE type='trial'"
+        activated = conn.execute(
+            "SELECT COUNT(*) c FROM licenses WHERE activations > 0"
         ).fetchone()["c"]
-        paid = conn.execute(
-            "SELECT COUNT(*) c FROM licenses WHERE type!='trial'"
+        revoked = conn.execute(
+            "SELECT COUNT(*) c FROM licenses WHERE revoked=1"
         ).fetchone()["c"]
-    return {"total": total, "active": active, "trials": trials, "paid": paid}
+    return {"total": total, "active": active, "activated": activated, "revoked": revoked}

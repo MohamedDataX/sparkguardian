@@ -17,12 +17,6 @@ services:
         value: /tmp/sparkguardian.db  # persistent disk -> DB resets on restart/redeploy
       - key: PUBLIC_URL          # set to your Render URL after first deploy
         sync: false
-      - key: STRIPE_SECRET_KEY   # test-mode keys; leave blank to disable billing
-        sync: false
-      - key: STRIPE_PRICE_ID
-        sync: false
-      - key: STRIPE_WEBHOOK_SECRET
-        sync: false
 # NOTE: Render's free web service sleeps after ~15 min idle and has no
 # persistent disk. For durable licenses, upgrade the instance and re-add a
 # `disk:` block (mountPath /data, DATABASE_PATH=/data/sparkguardian.db) or

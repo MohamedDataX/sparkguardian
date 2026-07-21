@@ -4,7 +4,7 @@ from __future__ import annotations
 from pydantic import BaseModel, EmailStr, Field
 
 
-class TrialRequest(BaseModel):
+class TokenRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     email: EmailStr
 
@@ -28,11 +28,3 @@ class ValidateResponse(BaseModel):
     name: str | None = None
     email: str | None = None
     expires_at: str | None = None
-
-
-class CheckoutRequest(BaseModel):
-    email: EmailStr
-
-
-class CheckoutResponse(BaseModel):
-    url: str

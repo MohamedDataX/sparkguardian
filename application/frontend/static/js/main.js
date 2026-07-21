@@ -1,4 +1,4 @@
-// SparkGuardian landing — trial generation, checkout, scroll reveal.
+// SparkGuardian landing — free token generation, scroll reveal.
 (() => {
   "use strict";
 
@@ -23,38 +23,33 @@
     return fallback;
   }
 
-  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-  // ---- Free-trial token generation ----
-  const trialForm = $("#trial-form");
-  if (trialForm) {
-    trialForm.addEventListener("submit", async (e) => {
+  // ---- Free token generation ----
+  const tokenForm = $("#token-form");
+  if (tokenForm) {
+    tokenForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const msg = $("#trial-msg");
-      const btn = trialForm.querySelector("button[type=submit]");
+      const msg = $("#token-msg");
+      const btn = tokenForm.querySelector("button[type=submit]");
       msg.textContent = "";
       msg.className = "msg";
       btn.disabled = true;
       btn.textContent = "Generating…";
 
-      const { ok, status, data } = await postJSON("/api/licenses/trial", {
+      const { ok, data } = await postJSON("/api/licenses/free", {
         name: $("#name").value.trim(),
         email: $("#email").value.trim(),
       });
 
       btn.disabled = false;
-      btn.textContent = "Generate Trial Token";
+      btn.textContent = "Generate Free Token";
 
       if (ok) {
         $("#token-value").textContent = data.token;
         $("#token-out").hidden = false;
-        msg.textContent = "Trial ready — copy your token below.";
+        msg.textContent = "Token ready — copy it below.";
         msg.classList.add("ok");
       } else {
-        msg.textContent =
-          status === 409
-            ? "A trial already exists for this email."
-            : errMsg(data, "Something went wrong.");
+        msg.textContent = errMsg(data, "Something went wrong.");
         msg.classList.add("err");
       }
     });
@@ -67,37 +62,6 @@
       await navigator.clipboard.writeText($("#token-value").textContent);
       copyBtn.textContent = "Copied!";
       setTimeout(() => (copyBtn.textContent = "Copy"), 1500);
-    });
-  }
-
-  // ---- Stripe subscribe ----
-  const subBtn = $("#subscribe-btn");
-  if (subBtn) {
-    subBtn.addEventListener("click", async () => {
-      const msg = $("#pay-msg");
-      msg.textContent = "";
-      msg.className = "msg";
-      const email = (prompt("Enter your email to subscribe:") || "").trim();
-      if (!email) return;
-      if (!EMAIL_RE.test(email)) {
-        msg.textContent = "Please enter a valid email address.";
-        msg.classList.add("err");
-        return;
-      }
-      subBtn.disabled = true;
-      subBtn.textContent = "Redirecting…";
-      const { ok, status, data } = await postJSON("/api/billing/checkout", { email });
-      subBtn.disabled = false;
-      subBtn.textContent = "Subscribe";
-      if (ok && data.url) {
-        window.location.href = data.url;
-      } else if (status === 501) {
-        msg.textContent = "Billing is not configured yet. Try the free trial instead.";
-        msg.classList.add("err");
-      } else {
-        msg.textContent = errMsg(data, "Billing unavailable.");
-        msg.classList.add("err");
-      }
     });
   }
 
