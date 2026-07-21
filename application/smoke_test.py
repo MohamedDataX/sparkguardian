@@ -19,17 +19,21 @@ r = c.get("/api/health")
 assert r.status_code == 200, r.text
 print("health:", r.json())
 
-# trial creation
-r = c.post("/api/licenses/trial", json={"name": "Ada", "email": "ada@x.com"})
+# free token creation
+r = c.post("/api/licenses/free", json={"name": "Ada", "email": "ada@x.com"})
 assert r.status_code == 200, r.text
-tok = r.json()["token"]
+body = r.json()
+tok = body["token"]
 assert tok.startswith("SG-"), tok
-print("trial token:", tok[:24], "...  expires", r.json()["expires_at"])
+assert body["type"] == "community", body
+assert body["expires_at"] is None, body          # community licenses never expire
+print("free token:", tok[:24], "...  expires", body["expires_at"])
 
-# duplicate trial blocked
-r = c.post("/api/licenses/trial", json={"name": "Ada", "email": "ada@x.com"})
-assert r.status_code == 409, r.text
-print("duplicate trial blocked ->", r.status_code)
+# asking again returns the same token (idempotent, so a lost token is recoverable)
+r = c.post("/api/licenses/free", json={"name": "Ada", "email": "ada@x.com"})
+assert r.status_code == 200, r.text
+assert r.json()["token"] == tok, r.text
+print("repeat request -> same token")
 
 # validate valid token
 r = c.post("/api/licenses/validate", json={"token": tok})
@@ -59,10 +63,14 @@ r = c.post("/api/licenses/validate", json={"token": tok})
 assert r.json()["valid"] is False and r.json()["reason"] == "revoked", r.text
 print("revoked token rejected ->", r.json()["reason"])
 
-# billing disabled -> 501
-r = c.post("/api/billing/checkout", json={"email": "ada@x.com"})
-assert r.status_code == 501, r.text
-print("billing stub (no keys) ->", r.status_code)
+# revoked email cannot mint a fresh token
+r = c.post("/api/licenses/free", json={"name": "Ada", "email": "ada@x.com"})
+assert r.status_code == 403, r.text
+print("revoked email blocked ->", r.status_code)
+
+# billing endpoints are gone
+assert c.post("/api/billing/checkout", json={"email": "ada@x.com"}).status_code == 404
+print("billing routes removed -> 404")
 
 # static + pages
 assert c.get("/").status_code == 200

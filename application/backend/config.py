@@ -27,20 +27,8 @@ class Settings:
     # SQLite database location.
     DATABASE_PATH: str = os.getenv("DATABASE_PATH", str(BASE_DIR / "sparkguardian.db"))
 
-    # Public base URL of this app (used for Stripe redirect URLs).
+    # Public base URL of this app (used in generated links).
     PUBLIC_URL: str = os.getenv("PUBLIC_URL", "http://localhost:8000")
-
-    # Trial length in days.
-    TRIAL_DAYS: int = int(os.getenv("TRIAL_DAYS", "7"))
-
-    # Stripe — test-mode keys work out of the box. Empty = billing disabled.
-    STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "")
-    STRIPE_PRICE_ID: str = os.getenv("STRIPE_PRICE_ID", "")
-    STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-
-    @property
-    def stripe_enabled(self) -> bool:
-        return bool(self.STRIPE_SECRET_KEY and self.STRIPE_PRICE_ID)
 
 
 @lru_cache

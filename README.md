@@ -70,7 +70,7 @@ SparkGuardian detects PySpark anti-patterns, analyzes execution plans, generates
 | Score + history | 0–100 score, regression detection |
 | Reports | terminal, JSON, Markdown, HTML, SARIF v2.1.0 |
 | CI/CD | exit codes 0/1/2 — GitHub Actions, GitLab, Jenkins |
-| Licensing | trial tokens, offline activation, Stripe billing |
+| Licensing | free community tokens, offline activation |
 
 ## Installation
 
@@ -84,7 +84,7 @@ Python 3.11+.
 ## Quick Start
 
 ```bash
-sparkguardian activate             # paste SG-… token (7-day free trial)
+sparkguardian activate             # paste SG-… token (free, never expires)
 sparkguardian analyze app.py       # --json --html --md --sarif
 sparkguardian fix app.py --dry-run
 sparkguardian cost app.py --cloud databricks
@@ -163,12 +163,14 @@ Exit **0** clean · **1** critical · **2** warnings. GitLab / Jenkins samples i
 
 ## Licensing & Web Portal
 
-`application/` — FastAPI landing page + license portal + Stripe billing. **Live:** <https://sparkguardian-portal.fly.dev>
+`application/` — FastAPI landing page + free-token portal. **Live:** <https://sparkguardian-portal.fly.dev>
 
-- 7-day free-trial tokens (name + email → signed `SG-…`)
-- CLI activates online once, caches locally, checks expiry **offline**
-- Types: trial / monthly / lifetime / enterprise
-- Stripe Checkout ($10/mo Pro) + webhook auto-issues Pro
+SparkGuardian is **free and open source (MIT)** — no paid tier, no billing. The
+token only identifies the user and lets the CLI verify itself offline.
+
+- Free community tokens, **never expire** (name + email → signed `SG-…`)
+- Idempotent: same email always gets the same token back
+- CLI activates online once, caches locally, then works **offline**
 - Admin dashboard: list / revoke / stats
 
 ```bash

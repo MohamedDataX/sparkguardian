@@ -13,15 +13,13 @@ CREATE TABLE IF NOT EXISTS licenses (
     jti            TEXT    UNIQUE NOT NULL,
     name           TEXT    NOT NULL,
     email          TEXT    NOT NULL,
-    type           TEXT    NOT NULL,          -- trial | monthly | lifetime | enterprise
+    type           TEXT    NOT NULL,          -- community (legacy rows: trial | monthly)
     token          TEXT    NOT NULL,
     created_at     TEXT    NOT NULL,
-    expires_at     TEXT,                       -- NULL = never expires (lifetime)
+    expires_at     TEXT,                       -- NULL = never expires (community)
     revoked        INTEGER NOT NULL DEFAULT 0,
     activated_at   TEXT,
-    activations    INTEGER NOT NULL DEFAULT 0,
-    stripe_customer TEXT,
-    stripe_sub      TEXT
+    activations    INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_licenses_email ON licenses(email);
 """

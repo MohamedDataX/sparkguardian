@@ -17,8 +17,8 @@
     $("#stats").innerHTML = [
       ["Total", stats.total],
       ["Active", stats.active],
-      ["Trials", stats.trials],
-      ["Paid", stats.paid],
+      ["Activated", stats.activated],
+      ["Revoked", stats.revoked],
     ]
       .map(([l, n]) => `<div class="stat"><div class="num">${n}</div><div class="lbl">${l}</div></div>`)
       .join("");
@@ -27,7 +27,7 @@
       .map((l) => {
         const status = l.revoked
           ? '<span class="badge revoked">Revoked</span>'
-          : `<span class="badge ${l.type === "trial" ? "trial" : "paid"}">${l.type}</span>`;
+          : `<span class="badge ${l.type === "community" ? "community" : "legacy"}">${l.type}</span>`;
         const revokeBtn = l.revoked
           ? ""
           : `<button class="revoke" data-jti="${l.jti}">Revoke</button>`;

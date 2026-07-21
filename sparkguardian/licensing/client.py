@@ -16,10 +16,10 @@ LICENSE_FILE = LICENSE_DIR / "license.json"
 # Licensing server (the `application/` backend). Override for self-hosting.
 API_URL = os.getenv("SPARKGUARDIAN_API_URL", "https://sparkguardian-portal.fly.dev").rstrip("/")
 
-UPGRADE_MSG = (
-    "Your free trial has expired.\n\n"
-    "Upgrade to SparkGuardian Pro.\n\n"
-    "$10/month  →  " + API_URL + "/#pricing"
+EXPIRED_MSG = (
+    "Your license has expired.\n\n"
+    "SparkGuardian is open source and free — grab a new token:\n\n"
+    "  " + API_URL + "/#token"
 )
 
 
@@ -124,7 +124,7 @@ def ensure_licensed(console: Any = None, *, prompt: Any = None) -> dict[str, Any
         return data
 
     if is_expired(data):
-        _echo(f"[red]{UPGRADE_MSG}[/red]")
+        _echo(f"[yellow]{EXPIRED_MSG}[/yellow]")
         raise LicenseError("License expired.")
 
     return data
