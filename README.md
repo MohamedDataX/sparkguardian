@@ -58,7 +58,7 @@ SparkGuardian detects PySpark anti-patterns, analyzes execution plans, generates
 
 ---
 
-## Features
+## Feature
 
 | Feature | Description |
 |---|---|
