@@ -4,3 +4,11 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# AWS deployment build artifact (pip bundle + zip) — never commit
+.aws-build/
+
+# Deployment shell scripts — kept local only, not published
+deploy_aws.sh
+soutenance.sh
+teardown_aws.sh
