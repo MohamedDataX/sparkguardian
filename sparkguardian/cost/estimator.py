@@ -1,215 +1,183 @@
 """Cost Estimator — translates anti-patterns into estimated cloud cost impact.
 
-Methodology:
-  Each rule has a cost model derived from AWS EMR / Databricks / Glue pricing
-  and Spark performance research. Estimates are conservative lower bounds for
-  a "medium" workload (1 TB/day, 10-node cluster, on-demand pricing).
+FinOps methodology:
 
-Pricing sources (2025-2026):
-  - AWS EMR on-demand: ~$0.063/vCPU-hour (m6g.xlarge)
-  - Databricks DBU: $0.40/DBU-hour (Jobs Compute)
-  - AWS S3: $0.023/GB stored + $0.005/1k GET requests
-  - Network egress: $0.09/GB cross-AZ
+    cost = wasted_compute_time  ×  real_cluster_hourly_cost
+
+Each rule is modelled by the *compute-minutes it wastes per run* on a reference
+cluster (10 nodes, 1 TB/day), plus how that waste scales with data volume
+(``ComplexityType``). The dollar figure comes from a real per-instance hourly
+price (see ``pricing_client``) multiplied by the actual cluster size — not from
+hardcoded monthly amounts.
+
+At the reference point (1 TB/day) every complexity multiplier equals 1, so a
+rule's ``baseline_wasted_minutes`` is exactly its per-run waste there.
+
+Pricing sources (verified 2025-2026):
+  - AWS EC2/EMR on-demand per instance (m6g.xlarge = $0.154/h, us-east-1)
+  - Databricks DBU = $0.15/DBU-hour (Jobs Compute, Premium), added on the VM
+  - Spot/preemptible ≈ 65% cheaper than on-demand
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
+from enum import Enum
 
+from sparkguardian.cost.pricing_client import CloudPricingFetcher
 from sparkguardian.models.issue import Severity
 from sparkguardian.models.report import AnalysisReport
 
 
+class ComplexityType(Enum):
+    """How a rule's wasted time scales with the daily data volume."""
+    FIXED = "fixed"                # O(1)      — fixed cost per failure/run
+    LINEAR = "linear"             # O(N)      — scales with data volume
+    QUADRATIC = "quadratic"       # O(N^2)    — row explosions (cartesian, explode)
+    SHUFFLE_BOUND = "shuffle"     # O(N log N)— shuffle-dominated cost
+
+
 @dataclass
-class CostModel:
-    """Cost model per rule — monthly USD impact for medium workload."""
+class AlgorithmicCostModel:
+    """Time-and-complexity cost model for one rule.
+
+    ``baseline_wasted_minutes`` is the extra compute-minutes this anti-pattern
+    burns in a single run on the reference cluster (10 nodes, 1 TB/day). For
+    rules describing occasional failures (e.g. driver OOM) it is the value
+    already amortised across runs.
+    """
     rule_id: str
-    monthly_usd: float
+    category: str                 # "compute" | "storage" | "network" | "io"
+    complexity: ComplexityType
+    baseline_wasted_minutes: float
     factor_description: str
-    cloud_resource: str  # "compute" | "storage" | "network" | "io"
 
 
+# ---------------------------------------------------------------------------
+# Per-rule cost models — reference cluster: 10 nodes, 1 TB/day, 1 run/day.
+# baseline_wasted_minutes = extra compute-minutes per run at that reference.
+# ---------------------------------------------------------------------------
 
-# Cost models — conservative estimates for medium workload (1 TB/day, 10 nodes)
-
-
-_COST_MODELS: dict[str, CostModel] = {
-    # Reliability — driver OOM = job crash = pipeline rerun
-    "CY001": CostModel(
-        rule_id="CY001",
-        monthly_usd=120.0,
-        factor_description="Job rerun cost when driver OOMs (1-2 failures/month)",
-        cloud_resource="compute",
+_COST_MODELS: dict[str, AlgorithmicCostModel] = {
+    # --- Reliability: crashes/reruns → amortised fixed waste per run ---
+    "CY001": AlgorithmicCostModel(
+        "CY001", "compute", ComplexityType.FIXED, 4.0,
+        "Driver .collect() OOM → job rerun (amortised over ~1-2 crashes/month)",
     ),
-    "CY002": CostModel(
-        rule_id="CY002",
-        monthly_usd=180.0,
-        factor_description="Driver upgrade + rerun cost (toPandas OOMs frequent)",
-        cloud_resource="compute",
+    "CY002": AlgorithmicCostModel(
+        "CY002", "compute", ComplexityType.FIXED, 6.0,
+        "toPandas() pulls all rows to driver → OOM + rerun, amortised",
     ),
-    "CY003": CostModel(
-        rule_id="CY003",
-        monthly_usd=45.0,
-        factor_description="Repeated full table scans (~3x extra reads/day)",
-        cloud_resource="io",
+    "CY003": AlgorithmicCostModel(
+        "CY003", "io", ComplexityType.LINEAR, 3.0,
+        "Repeated full scans — extra reads scale with data volume",
     ),
 
-    # CRITICAL — Spark action in loop = exponential job multiplication
-    "CY004": CostModel(
-        rule_id="CY004",
-        monthly_usd=850.0,
-        factor_description="N jobs vs 1 job — typically 10-100x compute overhead",
-        cloud_resource="compute",
+    # --- Critical: repeated jobs / row explosions ---
+    "CY004": AlgorithmicCostModel(
+        "CY004", "compute", ComplexityType.LINEAR, 12.0,
+        "Spark action inside a loop — N jobs instead of 1, scales with data",
+    ),
+    "CY005": AlgorithmicCostModel(
+        "CY005", "compute", ComplexityType.FIXED, 0.5,
+        "Stray .show() in production — extra action + stdout overhead",
     ),
 
-    "CY005": CostModel(
-        rule_id="CY005",
-        monthly_usd=15.0,
-        factor_description="Stdout overhead + extra action triggers",
-        cloud_resource="compute",
+    # --- Shuffle-bound: the #1 Spark expense ---
+    "CY008": AlgorithmicCostModel(
+        "CY008", "compute", ComplexityType.SHUFFLE_BOUND, 8.0,
+        "repartition(1)/coalesce(1) — full shuffle into a single partition",
+    ),
+    "CY009": AlgorithmicCostModel(
+        "CY009", "compute", ComplexityType.LINEAR, 1.5,
+        "Deep chained withColumn plan — Catalyst planning + per-row overhead",
+    ),
+    "CY010": AlgorithmicCostModel(
+        "CY010", "compute", ComplexityType.FIXED, 0.5,
+        "Implicit inner join — silent data loss, minor compute",
+    ),
+    "CY011": AlgorithmicCostModel(
+        "CY011", "io", ComplexityType.LINEAR, 3.0,
+        "No column pruning (select *) — extra columnar I/O scales with data",
+    ),
+    "CY012": AlgorithmicCostModel(
+        "CY012", "compute", ComplexityType.FIXED, 1.0,
+        "cache()/persist() never used — wasted memory + eviction churn",
+    ),
+    "CY013": AlgorithmicCostModel(
+        "CY013", "io", ComplexityType.LINEAR, 5.0,
+        "Recompute instead of cache — duplicate scans + S3 API costs",
+    ),
+    "CY014": AlgorithmicCostModel(
+        "CY014", "compute", ComplexityType.LINEAR, 2.5,
+        "Filter applied late — larger shuffle/scan input than necessary",
+    ),
+    "CY016": AlgorithmicCostModel(
+        "CY016", "compute", ComplexityType.QUADRATIC, 4.0,
+        "explode/self-join blowup — N*M row growth, super-linear runtime",
+    ),
+    "CY017": AlgorithmicCostModel(
+        "CY017", "compute", ComplexityType.SHUFFLE_BOUND, 3.0,
+        "distinct()/dropDuplicates — full shuffle for deduplication",
+    ),
+    "CY018": AlgorithmicCostModel(
+        "CY018", "compute", ComplexityType.SHUFFLE_BOUND, 3.5,
+        "Global orderBy vs top-N — O(N log N) total sort",
+    ),
+    "CY020": AlgorithmicCostModel(
+        "CY020", "compute", ComplexityType.LINEAR, 6.0,
+        "Python UDF — 10-100x slower than native, per-row, scales with data",
     ),
 
-    # Cost — shuffle is the #1 expense in Spark
-    "CY008": CostModel(
-        rule_id="CY008",
-        monthly_usd=320.0,
-        factor_description="Full shuffle + single-partition bottleneck (~3x runtime)",
-        cloud_resource="compute",
+    # --- Dynamic plan-level rules ---
+    "CY050": AlgorithmicCostModel(
+        "CY050", "compute", ComplexityType.QUADRATIC, 6.0,
+        "CartesianProduct — N*M rows, can dominate the whole job",
     ),
-    "CY009": CostModel(
-        rule_id="CY009",
-        monthly_usd=65.0,
-        factor_description="Deep plan tree degrades Catalyst (~15% planning overhead)",
-        cloud_resource="compute",
+    "CY051": AlgorithmicCostModel(
+        "CY051", "network", ComplexityType.SHUFFLE_BOUND, 4.0,
+        "Excessive shuffles — disk spill + cross-node network egress",
     ),
-    "CY010": CostModel(
-        rule_id="CY010",
-        monthly_usd=25.0,
-        factor_description="Implicit inner join — silent data loss costs analyst time",
-        cloud_resource="compute",
+    "CY052": AlgorithmicCostModel(
+        "CY052", "compute", ComplexityType.SHUFFLE_BOUND, 3.0,
+        "Missed broadcast — sort+shuffle both sides instead of a map-side join",
     ),
-    "CY011": CostModel(
-        rule_id="CY011",
-        monthly_usd=180.0,
-        factor_description="No column pruning — ~70% extra I/O on Parquet/ORC",
-        cloud_resource="io",
+    "CY053": AlgorithmicCostModel(
+        "CY053", "compute", ComplexityType.SHUFFLE_BOUND, 3.5,
+        "Window without partitionBy — single-partition, parallelism lost",
     ),
-    "CY012": CostModel(
-        rule_id="CY012",
-        monthly_usd=40.0,
-        factor_description="Wasted storage memory + LRU eviction overhead",
-        cloud_resource="compute",
-    ),
-    "CY013": CostModel(
-        rule_id="CY013",
-        monthly_usd=210.0,
-        factor_description="Duplicate I/O + S3 API costs (~2x scan cost)",
-        cloud_resource="io",
-    ),
-    "CY014": CostModel(
-        rule_id="CY014",
-        monthly_usd=95.0,
-        factor_description="Larger shuffle input (~5x post-aggregation rows)",
-        cloud_resource="compute",
-    ),
-    "CY016": CostModel(
-        rule_id="CY016",
-        monthly_usd=480.0,
-        factor_description="N*M row explosion — runtime can grow 100x+",
-        cloud_resource="compute",
-    ),
-    "CY017": CostModel(
-        rule_id="CY017",
-        monthly_usd=110.0,
-        factor_description="Full shuffle for deduplication (~30% extra runtime)",
-        cloud_resource="compute",
-    ),
-    "CY018": CostModel(
-        rule_id="CY018",
-        monthly_usd=140.0,
-        factor_description="O(N log N) global sort vs O(N) top-N (~5x runtime)",
-        cloud_resource="compute",
-    ),
-    "CY020": CostModel(
-        rule_id="CY020",
-        monthly_usd=380.0,
-        factor_description="Python UDF 10-100x slower than native — typically 20x overhead",
-        cloud_resource="compute",
-    ),
-
-    # Dynamic rules — plan-level issues
-    "CY050": CostModel(
-        rule_id="CY050",
-        monthly_usd=950.0,
-        factor_description="CartesianProduct — N*M rows can crash cluster",
-        cloud_resource="compute",
-    ),
-    "CY051": CostModel(
-        rule_id="CY051",
-        monthly_usd=290.0,
-        factor_description="Excessive shuffles — disk I/O + network egress costs",
-        cloud_resource="network",
-    ),
-    "CY052": CostModel(
-        rule_id="CY052",
-        monthly_usd=160.0,
-        factor_description="Missed broadcast = sort+shuffle both sides (~3x cost)",
-        cloud_resource="compute",
-    ),
-    "CY053": CostModel(
-        rule_id="CY053",
-        monthly_usd=220.0,
-        factor_description="Single-partition window — N-way parallelism lost",
-        cloud_resource="compute",
-    ),
-    "CY054": CostModel(
-        rule_id="CY054",
-        monthly_usd=200.0,
-        factor_description="No AQE — static plan with skew/over-partitioning waste",
-        cloud_resource="compute",
+    "CY054": AlgorithmicCostModel(
+        "CY054", "compute", ComplexityType.LINEAR, 2.5,
+        "AQE disabled — static plan keeps skew/over-partitioning waste",
     ),
 }
 
 
-# Workload scaling factors
-
+# ---------------------------------------------------------------------------
+# Workload profile
+# ---------------------------------------------------------------------------
 
 @dataclass
 class WorkloadProfile:
-    """Workload scale relative to baseline (1 TB/day, 10 nodes, daily run)."""
+    """Concrete workload the pipeline runs on. Defaults = reference cluster."""
     daily_data_tb: float = 1.0
     cluster_nodes: int = 10
     runs_per_day: int = 1
     cloud: str = "aws_emr"  # "aws_emr" | "databricks" | "gcp_dataproc" | "azure_synapse"
-
-    @property
-    def scale_factor(self) -> float:
-        """Multiplier vs baseline workload."""
-        data_factor = self.daily_data_tb / 1.0
-        cluster_factor = self.cluster_nodes / 10.0
-        run_factor = self.runs_per_day / 1.0
-        return data_factor * cluster_factor * run_factor
-
-    @property
-    def cloud_multiplier(self) -> float:
-        """Relative cost multiplier vs AWS EMR baseline."""
-        return {
-            "aws_emr": 1.0,
-            "databricks": 1.3,
-            "gcp_dataproc": 0.9,
-            "azure_synapse": 1.1,
-        }.get(self.cloud, 1.0)
+    is_spot: bool = False
+    instance_type: str = "m6g.xlarge"
 
 
 # ---------------------------------------------------------------------------
-# Cost estimation result
+# Result types (unchanged public shape — backward compatible)
 # ---------------------------------------------------------------------------
 
 @dataclass
 class CostBreakdown:
     rule_id: str
     severity: str
-    base_cost_usd: float
-    scaled_cost_usd: float
+    base_cost_usd: float          # monthly $ for this rule at reference scale
+    scaled_cost_usd: float        # monthly $ for this rule at the real workload
     description: str
     cloud_resource: str
     occurrences: int = 1
@@ -236,15 +204,12 @@ class CostEstimate:
 # ---------------------------------------------------------------------------
 
 class CostEstimator:
-    """
-    Estimates monthly/yearly cloud cost impact of PySpark anti-patterns.
+    """Estimate monthly/yearly cloud cost of PySpark anti-patterns via FinOps.
 
-    Uses conservative lower-bound estimates based on:
-    - AWS EMR / Databricks / GCP Dataproc on-demand pricing
-    - Spark performance research (shuffle cost, UDF overhead, plan optimization)
-    - Real-world incident cost (driver OOM = job rerun)
+        cost = wasted_hours × monthly_runs × cluster_hourly_cost
 
-    All estimates are PER MONTH for the configured WorkloadProfile.
+    where ``wasted_hours`` derives from each rule's algorithmic time model and
+    ``cluster_hourly_cost`` from real per-instance pricing.
     """
 
     def estimate(
@@ -253,43 +218,64 @@ class CostEstimator:
         workload: WorkloadProfile | None = None,
     ) -> CostEstimate:
         workload = workload or WorkloadProfile()
+
+        # --- Step 2 (once): real hourly cost of the whole cluster ---
+        cluster_hourly_cost = self._cluster_hourly_cost(workload)
+        monthly_runs = workload.runs_per_day * 30.5
+
+        # Reference cluster cost, for the per-rule "base" (reference) figure.
+        ref_hourly_cost = self._cluster_hourly_cost(
+            WorkloadProfile(instance_type=workload.instance_type, cloud=workload.cloud)
+        )
+        ref_monthly_runs = 1 * 30.5
+
         breakdown: list[CostBreakdown] = []
         by_resource: dict[str, float] = {}
 
-        # Count occurrences per rule
         rule_counts: dict[str, int] = {}
         for issue in report.active_issues:
             rule_counts[issue.rule_id] = rule_counts.get(issue.rule_id, 0) + 1
 
-        scale = workload.scale_factor * workload.cloud_multiplier
-
+        seen: set[str] = set()
         for issue in report.active_issues:
             model = _COST_MODELS.get(issue.rule_id)
-            if not model:
+            if not model or issue.rule_id in seen:
                 continue
+            seen.add(issue.rule_id)
             occurrences = rule_counts.get(issue.rule_id, 1)
-            severity_multiplier = _severity_multiplier(issue.severity)
-            base = model.monthly_usd * severity_multiplier
-            scaled = base * scale * _occurrence_factor(occurrences)
 
-            already_counted = any(
-                b.rule_id == issue.rule_id for b in breakdown
+            # --- Step 1: wasted minutes per run ---
+            base_minutes = self._complexity_minutes(model, workload.daily_data_tb)
+            wasted_minutes = (
+                base_minutes
+                * _severity_multiplier(issue.severity)
+                * _occurrence_factor(occurrences)
             )
-            if not already_counted:
-                breakdown.append(
-                    CostBreakdown(
-                        rule_id=issue.rule_id,
-                        severity=issue.severity.value,
-                        base_cost_usd=base,
-                        scaled_cost_usd=scaled,
-                        description=model.factor_description,
-                        cloud_resource=model.cloud_resource,
-                        occurrences=occurrences,
-                    )
+
+            # --- Step 3: minutes → money ---
+            wasted_hours = wasted_minutes / 60.0
+            scaled = wasted_hours * monthly_runs * cluster_hourly_cost
+
+            # Reference-scale figure (1 TB/day, 1 run) for comparison in reports.
+            ref_minutes = (
+                model.baseline_wasted_minutes
+                * _severity_multiplier(issue.severity)
+                * _occurrence_factor(occurrences)
+            )
+            base = (ref_minutes / 60.0) * ref_monthly_runs * ref_hourly_cost
+
+            breakdown.append(
+                CostBreakdown(
+                    rule_id=issue.rule_id,
+                    severity=issue.severity.value,
+                    base_cost_usd=round(base, 2),
+                    scaled_cost_usd=round(scaled, 2),
+                    description=model.factor_description,
+                    cloud_resource=model.category,
+                    occurrences=occurrences,
                 )
-                by_resource[model.cloud_resource] = (
-                    by_resource.get(model.cloud_resource, 0.0) + scaled
-                )
+            )
+            by_resource[model.category] = by_resource.get(model.category, 0.0) + scaled
 
         total_monthly = sum(b.scaled_cost_usd for b in breakdown)
         breakdown.sort(key=lambda b: -b.scaled_cost_usd)
@@ -302,6 +288,37 @@ class CostEstimator:
             breakdown=breakdown,
             by_resource={k: round(v, 2) for k, v in by_resource.items()},
         )
+
+    # -- helpers ------------------------------------------------------------
+
+    @staticmethod
+    def _complexity_minutes(model: AlgorithmicCostModel, data_tb: float) -> float:
+        """Wasted minutes for one run at ``data_tb``, per the rule's complexity."""
+        b = model.baseline_wasted_minutes
+        # Guard against zero/negative volumes.
+        n = max(data_tb, 0.0)
+        if model.complexity is ComplexityType.FIXED:
+            return b
+        if model.complexity is ComplexityType.LINEAR:
+            return b * n
+        if model.complexity is ComplexityType.QUADRATIC:
+            return b * (n ** 2)
+        if model.complexity is ComplexityType.SHUFFLE_BOUND:
+            return b * n * math.log2(n + 1)
+        return b
+
+    @staticmethod
+    def _cluster_hourly_cost(workload: WorkloadProfile) -> float:
+        """Real $/hour for the whole cluster (Step 2 of the formula)."""
+        instance_price = CloudPricingFetcher.get_instance_price(
+            workload.cloud, workload.instance_type
+        )
+        cost = instance_price * workload.cluster_nodes
+        if workload.cloud.lower().startswith("databricks"):
+            cost += CloudPricingFetcher.dbu_price() * workload.cluster_nodes
+        if workload.is_spot:
+            cost *= 0.35  # spot/preemptible ≈ 65% discount
+        return cost
 
 
 def _severity_multiplier(sev: Severity) -> float:
