@@ -459,6 +459,10 @@ def cost(
         "aws_emr", "--cloud",
         help="Cloud provider: aws_emr | databricks | gcp_dataproc | azure_synapse",
     ),
+    instance_type: str = typer.Option(
+        "m6g.xlarge", "--instance", help="Cluster instance type (e.g. m6g.xlarge)"
+    ),
+    spot: bool = typer.Option(False, "--spot", help="Price cluster as spot/preemptible (-65%)"),
     output_json: bool = typer.Option(False, "--json", help="JSON output"),
 ) -> None:
     """Estimate monthly/yearly cloud cost waste from PySpark anti-patterns."""
@@ -481,6 +485,8 @@ def cost(
         cluster_nodes=cluster_nodes,
         runs_per_day=runs_per_day,
         cloud=cloud,
+        instance_type=instance_type,
+        is_spot=spot,
     )
     estimator = CostEstimator()
     estimate = estimator.estimate(combined, workload)
@@ -507,9 +513,12 @@ def _print_cost_estimate(estimate) -> None:
     console.print()
     console.rule(f"[bold cyan]Cloud Cost Estimate — {estimate.target}[/bold cyan]")
     w = estimate.workload
+    from sparkguardian.cost.pricing_client import CloudPricingFetcher
+    price = CloudPricingFetcher.get_instance_price(w.cloud, w.instance_type)
+    spot_note = " spot" if w.is_spot else ""
     console.print(
-        f"\n[dim]Workload: {w.daily_data_tb} TB/day | {w.cluster_nodes} nodes | "
-        f"{w.runs_per_day}x/day | cloud={w.cloud} (×{w.cloud_multiplier})[/dim]"
+        f"\n[dim]Workload: {w.daily_data_tb} TB/day | {w.cluster_nodes}× {w.instance_type}"
+        f"{spot_note} (${price:.3f}/h) | {w.runs_per_day}x/day | cloud={w.cloud}[/dim]"
     )
 
     color = "red" if estimate.total_monthly_usd > 1000 else (

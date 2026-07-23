@@ -128,12 +128,21 @@ sparkguardian ai-status
 
 ## Cloud Cost Estimator
 
-Turns anti-patterns into $ waste per cloud:
+FinOps model — `cost = wasted_compute_time × real_cluster_hourly_cost`. Each
+rule carries an algorithmic time model (fixed / linear / quadratic / shuffle-bound)
+that scales with data volume; the hourly rate comes from live cloud pricing
+(AWS/Azure APIs) with a built-in fallback table, so it never needs credentials.
 
 ```bash
-sparkguardian cost app.py --cloud databricks
-# 💸 Estimated waste: $2,407/month
+sparkguardian cost app.py --cloud databricks \
+  --data-tb 10 --nodes 50 --runs 4 --instance m6g.xlarge
+# 💸 Estimated waste: $31,713/month  ($380,557/year)
+
+sparkguardian cost app.py --spot        # price the cluster as spot (−65%)
 ```
+
+Scales realistically: quadratic anti-patterns (CartesianProduct, explode) blow
+up ~100× at 10 TB, shuffle-bound ones ~34×, fixed ones stay flat.
 
 ## Audit History
 
