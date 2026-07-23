@@ -1,0 +1,4 @@
+# Lambda bundle. boto3 ships with the runtime, so it is deliberately absent.
+fastapi>=0.110.0
+pydantic[email]>=2.6.0
+mangum>=0.17.0

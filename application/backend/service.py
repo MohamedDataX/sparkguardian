@@ -51,7 +51,7 @@ def existing_license(email: str) -> dict[str, object] | None:
     Lets a user who lost their token get the same one back instead of piling up
     duplicates. Revoked rows are ignored on purpose — see ``is_revoked``.
     """
-    with get_conn() as conn:
+    with get_conn(write=False) as conn:
         row = conn.execute(
             "SELECT token, type, name, email, expires_at FROM licenses "
             "WHERE email=? AND type=? AND revoked=0 ORDER BY id DESC LIMIT 1",
@@ -62,7 +62,7 @@ def existing_license(email: str) -> dict[str, object] | None:
 
 def is_revoked(email: str) -> bool:
     """True if every community license this email holds has been revoked."""
-    with get_conn() as conn:
+    with get_conn(write=False) as conn:
         revoked = conn.execute(
             "SELECT 1 FROM licenses WHERE email=? AND type=? AND revoked=1 LIMIT 1",
             (email, FREE_TYPE),
@@ -100,7 +100,7 @@ def validate(token: str) -> dict[str, object]:
 
 
 def list_licenses() -> list[dict[str, object]]:
-    with get_conn() as conn:
+    with get_conn(write=False) as conn:
         rows = conn.execute(
             "SELECT jti, name, email, type, created_at, expires_at, revoked, "
             "activations, activated_at FROM licenses ORDER BY id DESC"
@@ -116,7 +116,7 @@ def revoke(jti: str) -> bool:
 
 def stats() -> dict[str, int]:
     now_iso = datetime.now(tz=timezone.utc).isoformat()
-    with get_conn() as conn:
+    with get_conn(write=False) as conn:
         total = conn.execute("SELECT COUNT(*) c FROM licenses").fetchone()["c"]
         active = conn.execute(
             "SELECT COUNT(*) c FROM licenses WHERE revoked=0 "
