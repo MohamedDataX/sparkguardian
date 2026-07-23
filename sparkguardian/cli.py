@@ -6,6 +6,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from sparkguardian import licensing
 from sparkguardian.ci.exit_codes import resolve_exit_code
 from sparkguardian.config import GuardianConfig
 from sparkguardian.constants import APP_NAME, APP_VERSION
@@ -17,7 +18,6 @@ from sparkguardian.reporting.markdown_reporter import to_markdown
 from sparkguardian.reporting.sarif_reporter import to_sarif
 from sparkguardian.reporting.terminal_reporter import print_report
 from sparkguardian.rewriter.safe_rewriter import SafeRewriter
-from sparkguardian import licensing
 from sparkguardian.scoring.score_engine import compute_score
 from sparkguardian.utils.file_utils import collect_python_files
 

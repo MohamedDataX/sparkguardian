@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -56,7 +56,7 @@ def is_expired(data: dict[str, Any]) -> bool:
     exp = _parse_expiry(data.get("expires_at"))
     if exp is None:  # lifetime / no expiry
         return False
-    return datetime.now(tz=timezone.utc) >= exp
+    return datetime.now(tz=UTC) >= exp
 
 
 def activate(token: str) -> dict[str, Any]:
@@ -83,7 +83,7 @@ def activate(token: str) -> dict[str, Any]:
         "email": body.get("email"),
         "type": body.get("type"),
         "expires_at": body.get("expires_at"),
-        "activated_at": datetime.now(tz=timezone.utc).isoformat(),
+        "activated_at": datetime.now(tz=UTC).isoformat(),
     }
     _save_license(data)
     return data
