@@ -1,5 +1,5 @@
 APP_NAME = "SparkGuardian"
-APP_VERSION = "0.1.2"
+APP_VERSION = "0.1.3"
 DEFAULT_CONFIG_FILE = ".sparkguardian.toml"
 EXIT_SUCCESS = 0
 EXIT_CRITICAL = 1
