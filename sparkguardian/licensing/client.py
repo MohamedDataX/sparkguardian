@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -14,7 +15,10 @@ LICENSE_DIR = Path(os.getenv("SPARKGUARDIAN_HOME", str(Path.home() / ".sparkguar
 LICENSE_FILE = LICENSE_DIR / "license.json"
 
 # Licensing server (the `application/` backend). Override for self-hosting.
-API_URL = os.getenv("SPARKGUARDIAN_API_URL", "https://sparkguardian-portal.fly.dev").rstrip("/")
+API_URL = os.getenv(
+    "SPARKGUARDIAN_API_URL",
+    "https://isjvo5ju0g.execute-api.us-east-1.amazonaws.com",
+).rstrip("/")
 
 EXPIRED_MSG = (
     "Your license has expired.\n\n"
@@ -100,11 +104,26 @@ def status_line(data: dict[str, Any] | None = None) -> str:
     return f"{data.get('type', 'unknown')} license · {state} · expires {when} · {data.get('email', '')}"
 
 
+def _non_interactive() -> bool:
+    """True when no human can answer a prompt (CI, piped stdin, no TTY)."""
+    if os.getenv("CI"):
+        return True
+    try:
+        return not sys.stdin.isatty()
+    except (ValueError, OSError):  # detached / closed stdin
+        return True
+
+
 def ensure_licensed(console: Any = None, *, prompt: Any = None) -> dict[str, Any]:
     """Gate CLI commands. Activates on first run, blocks when expired.
 
     ``console`` is an optional rich Console for output; ``prompt`` an optional
     callable (e.g. ``typer.prompt``) used to ask for a token interactively.
+
+    In non-interactive environments (CI, piped stdin) the CLI cannot answer a
+    prompt, so we never block there: a token may be supplied via the
+    ``SPARKGUARDIAN_TOKEN`` environment variable, otherwise the command runs in
+    community offline mode. Interactive sessions keep the original behaviour.
     """
     def _echo(msg: str) -> None:
         if console is not None:
@@ -114,6 +133,23 @@ def ensure_licensed(console: Any = None, *, prompt: Any = None) -> dict[str, Any
 
     data = load_license()
 
+    # 1. Explicit token from the environment (CI-friendly, no prompt).
+    env_token = os.getenv("SPARKGUARDIAN_TOKEN")
+    if data is None and env_token:
+        data = activate(env_token.strip())
+        _echo("[green]License activated from SPARKGUARDIAN_TOKEN.[/green]")
+        return data
+
+    # 2. No human to prompt: run in community offline mode instead of aborting.
+    if _non_interactive():
+        if data is None:
+            _echo("[dim]No license found; running in community offline mode.[/dim]")
+            return {}
+        if is_expired(data):
+            _echo("[dim]License expired; running in community offline mode.[/dim]")
+        return data
+
+    # 3. Interactive session: original behaviour.
     if data is None:
         _echo("[yellow]No license found.[/yellow]")
         if prompt is None:
