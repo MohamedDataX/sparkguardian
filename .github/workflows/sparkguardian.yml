@@ -37,9 +37,15 @@ jobs:
             --md sparkguardian-report.md \
             --sarif sparkguardian.sarif
           code=$?
+          set -e
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
-          echo "SparkGuardian analyze exit code: $code (report-only, not gating)"
-          exit 0
+          echo "SparkGuardian analyze exit code: $code (report-only, findings do not gate)"
+          # Honest green: pass whatever the findings are (exit 1/2), but fail if
+          # the tool produced no report at all (a real error, not findings).
+          if [ ! -f sparkguardian-report.md ] || [ ! -f sparkguardian.sarif ]; then
+            echo "::error::SparkGuardian produced no report (analyze failed)"
+            exit 1
+          fi
 
       - name: Publish report to job summary
         if: always()
