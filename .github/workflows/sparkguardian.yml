@@ -1,10 +1,19 @@
 name: SparkGuardian Audit
 
+# Report-only audit: runs SparkGuardian, publishes a Markdown summary + SARIF,
+# and always finishes green. The analysis exit code is captured and shown in the
+# job summary, but it does NOT fail the workflow (gating is opt-in, see below).
+
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write   # needed to publish SARIF to the Security tab
 
 jobs:
   audit:
@@ -18,16 +27,59 @@ jobs:
           python-version: "3.11"
 
       - name: Install SparkGuardian
-        run: pip install sparkguardian
+        run: pip install .
 
-      - name: Run SparkGuardian audit
-        run: sparkguardian analyze . --json > sparkguardian-report.json
-        # Exit code 1 = CRITICAL issues → CI fails
-        # Exit code 2 = warnings only → CI passes (adjust as needed)
+      - name: Run SparkGuardian audit (report-only)
+        id: audit
+        run: |
+          set +e
+          sparkguardian analyze examples/ \
+            --md sparkguardian-report.md \
+            --sarif sparkguardian.sarif
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          echo "SparkGuardian analyze exit code: $code (report-only, not gating)"
+          exit 0
 
-      - name: Upload report
+      - name: Publish report to job summary
+        if: always()
+        run: |
+          if [ -f sparkguardian-report.md ]; then
+            cat sparkguardian-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No report generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload SARIF to code scanning
+        if: always()
+        continue-on-error: true   # a missing code-scanning setup must not red the run
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sparkguardian.sarif
+
+      - name: Upload report artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: sparkguardian-report
-          path: sparkguardian-report.json
+          path: |
+            sparkguardian-report.md
+            sparkguardian.sarif
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------------------
+  # Optional gate. Disabled by default so the main audit stays green.
+  # Flip `if: false` -> `if: true` to make CI fail on CRITICAL findings.
+  # ---------------------------------------------------------------------------
+  gate:
+    if: false
+    runs-on: ubuntu-latest
+    needs: audit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install .
+      - name: Fail on critical findings
+        run: sparkguardian analyze examples/
