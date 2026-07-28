@@ -5,7 +5,7 @@
 <h1 align="center">SparkGuardian</h1>
 
 <p align="center">
-  <em>A production-grade auditing, optimization, and FinOps engine for Apache Spark — 100% offline.</em>
+  <em>A production-grade auditing, optimization, and FinOps engine for Apache Spark</em>
 </p>
 
 <p align="center">
@@ -233,7 +233,7 @@ invent Spark config flags that don't exist. To stop that, SparkGuardian ships a
   and carries the *exact* Spark config parameters and source URL that back it.
 - A **keyword-overlap retriever** that scores entries against the question and
   returns the most relevant passage — no external vector database, no embedding
-  service, no network. That is what keeps the "100% offline" promise real.
+  service, no network.
 - The retrieved passage is injected into the LLM prompt as authoritative
   context, so the model's job is to *explain the retrieved facts*, not to recall
   them. Explanations end up citing real settings like
