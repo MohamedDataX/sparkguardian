@@ -1,4 +1,8 @@
-"""AISession — stateful multi-turn conversation with history + context window management."""
+"""Multi-turn chat session backed by Ollama.
+
+Holds the conversation history and trims it so the context window never
+overflows. Created by LocalLLM.create_session(), pre-loaded with the report.
+"""
 from __future__ import annotations
 
 import json
@@ -22,11 +26,7 @@ class Message:
 
 
 class AISession:
-    """
-    Stateful LLM session. Maintains conversation history.
-    System prompt injected once. History truncated to _MAX_HISTORY.
-    All inference stays local via Ollama.
-    """
+    """One conversation. Not thread-safe; the CLI drives it from a single loop."""
 
     def __init__(
         self,
@@ -40,14 +40,11 @@ class AISession:
         self._max_history = max_history
         self._history: list[Message] = [Message(role="system", content=system_prompt)]
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
     def ask(self, question: str) -> str:
         self._history.append(Message(role="user", content=question))
         self._trim_history()
         response = self._call()
+        # The answer goes back into the history, so the next turn can refer to it.
         self._history.append(Message(role="assistant", content=response))
         self._trim_history()
         return response
@@ -78,12 +75,9 @@ class AISession:
     def history_text(self) -> str:
         return "\n".join(f"[{m.role}] {m.content[:80]}..." for m in self._history)
 
-    # ------------------------------------------------------------------
-    # Internal
-    # ------------------------------------------------------------------
-
     def _trim_history(self) -> None:
-        # Keep system messages + last _max_history user/assistant messages
+        # System messages are never dropped: they carry the role and the report
+        # context, and losing them mid-conversation derails the model.
         system_msgs = [m for m in self._history if m.role == "system"]
         dialog_msgs = [m for m in self._history if m.role != "system"]
         if len(dialog_msgs) > self._max_history:

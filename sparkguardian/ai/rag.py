@@ -615,13 +615,12 @@ For DataFrames: from pyspark.sql.functions import broadcast
 
 
 class SparkKnowledgeBase:
-    """
-    Keyword-based retrieval from official Apache Spark documentation.
+    """Keyword retrieval over the entries above.
 
-    Sources: spark.apache.org/docs/latest — Spark 4.1.1
-      - tuning.html
-      - sql-performance-tuning.html
-      - rdd-programming-guide.html
+    No embeddings and no vector store on purpose. The corpus is 24 curated
+    entries keyed by rule id, so the lookup that matters is an exact dict hit;
+    keyword scoring only serves free-text questions in the chat command. A
+    vector DB would add a dependency and a service for no gain at this size.
     """
 
     def __init__(self) -> None:
@@ -629,12 +628,15 @@ class SparkKnowledgeBase:
         self._by_rule: dict[str, KnowledgeEntry] = {e.rule_id: e for e in self._entries}
 
     def query(self, question: str, rule_id: str | None = None) -> str:
+        """Entry text for a rule id, else the best keyword match, else ""."""
+        # Exact rule match wins: it is the path used when explaining a finding.
         if rule_id and rule_id in self._by_rule:
             return self._by_rule[rule_id].content
 
         q_lower = question.lower()
         tokens = set(re.findall(r"\w+", q_lower))
 
+        # Score = how many of an entry's keywords the question mentions.
         scored: list[tuple[int, KnowledgeEntry]] = []
         for entry in self._entries:
             score = sum(1 for kw in entry.keywords if kw in tokens)
@@ -653,6 +655,7 @@ class SparkKnowledgeBase:
         return "", []
 
     def all_rules_context(self) -> str:
+        """Whole corpus as one string. Large: only for a full-context prompt."""
         return "\n\n".join(
             f"[{e.rule_id}] {e.title}\n{e.content}" for e in self._entries
         )

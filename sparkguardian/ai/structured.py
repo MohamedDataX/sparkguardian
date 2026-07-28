@@ -1,4 +1,8 @@
-"""Structured AI output — parse LLM JSON responses into typed dataclasses."""
+"""Parse LLM answers into typed dataclasses.
+
+Models do not reliably return clean JSON, so parsing never raises: on failure
+the raw text is kept in `parse_error` and callers fall back to a heuristic.
+"""
 from __future__ import annotations
 
 import json
@@ -42,8 +46,12 @@ class RemediationPlan:
 
 
 def _extract_json(text: str) -> str:
-    """Extract first JSON object from text (handles markdown code blocks)."""
-    # Strip ```json ... ``` wrappers
+    """Pull the first JSON object out of a model answer.
+
+    Models wrap JSON in markdown fences, or add a sentence before it. Both are
+    handled here rather than in each caller.
+    """
+    # Fenced block first, it is the common case.
     m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     if m:
         return m.group(1)
@@ -51,6 +59,8 @@ def _extract_json(text: str) -> str:
     start = text.find("{")
     if start == -1:
         return text
+    # No fence: brace-count to the matching close, so a nested object does not
+    # cut the extraction short.
     depth = 0
     for i, ch in enumerate(text[start:], start):
         if ch == "{":
