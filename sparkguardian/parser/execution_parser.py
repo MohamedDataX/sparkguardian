@@ -1,4 +1,8 @@
-"""Regex + tree-based execution plan parser."""
+"""Thin wrapper over the node extractor, plus the counting helpers.
+
+The class mostly exists so callers hold one object instead of importing loose
+functions. The helpers are the queries the dynamic rules kept rewriting inline.
+"""
 from __future__ import annotations
 
 from sparkguardian.models.execution_node import ExecutionNode, NodeType
@@ -17,6 +21,8 @@ class ExecutionPlanParser:
         return any(n.node_type == node_type for n in nodes)
 
     def shuffle_count(self, nodes: list[ExecutionNode]) -> int:
+        # Both count as a shuffle cost-wise. Which one appears depends on the
+        # Spark version and on whether AQE rewrote the stage.
         return sum(
             1 for n in nodes
             if n.node_type in (NodeType.EXCHANGE, NodeType.SHUFFLE_EXCHANGE)
