@@ -42,22 +42,26 @@ uvicorn backend.main:app --reload
 The app needs a Python runtime (FastAPI backend) — **GitHub Pages cannot host it**
 (static-only, no `/api/*`). Deploy the whole app to any container/Python host.
 
-**Render (one click)** — `render.yaml` at the repo root is a ready blueprint:
-New → Blueprint → pick this repo. It provisions the service, a 1 GB disk for the
-SQLite DB, and generates `SECRET_KEY`/`ADMIN_TOKEN`. After the first deploy set
-`PUBLIC_URL` to the Render URL.
+**AWS Lambda (what the public portal runs on)** — `lambda_handler.py` wraps the
+FastAPI app with Mangum and API Gateway sits in front. Lambda only lets you write
+to `/tmp`, and that disappears between invocations, so `backend/storage.py` keeps
+the SQLite file in S3: pulled on cold start, pushed after every write.
 
 **Docker (any host)**:
+
 ```bash
 cd application
 docker build -t sparkguardian-portal .
 docker run -p 8000:8000 --env-file .env sparkguardian-portal
 ```
 
-**Railway / Fly / Heroku-style**: `application/Procfile` runs
+**Fly.io**: `application/fly.toml` (Paris region, health check, and a volume
+mounted at `/data` for the database).
+
+**Railway / Heroku-style**: `application/Procfile` runs
 `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`.
 
-> SQLite lives on local disk — attach a persistent volume (Render disk above) so
+> Outside Lambda, SQLite lives on local disk — attach a persistent volume so
 > issued licenses survive restarts.
 
 ## License tokens
@@ -96,5 +100,6 @@ sparkguardian license             # show current license status
 sparkguardian analyze app.py      # runs once activated
 ```
 
-Point the CLI at this server with `SPARKGUARDIAN_API_URL` (default `http://localhost:8000`).
-Cache lives at `~/.sparkguardian/license.json`.
+By default the CLI talks to the public portal. Set `SPARKGUARDIAN_API_URL` to
+point it at your own instance instead (`http://localhost:8000` when running the
+commands above). The cache lives at `~/.sparkguardian/license.json`.

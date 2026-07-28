@@ -44,8 +44,8 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
   `sparkguardian activate` and check it with `sparkguardian license`.
 - An admin page listing issued licenses, with revocation and basic stats,
   protected by a bearer token.
-- Deployment files for Fly.io (`fly.toml`) and Render (`render.yaml`), plus a
-  Dockerfile. The Fly setup uses a volume so the database survives restarts.
+- Deployment files for Fly.io (`fly.toml`) plus a Dockerfile. The Fly setup uses
+  a volume so the database survives restarts.
 
 ### Changed
 - The CLI points to the deployed portal by default, so activation works without
