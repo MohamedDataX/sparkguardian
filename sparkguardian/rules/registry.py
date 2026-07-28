@@ -1,9 +1,12 @@
+"""Registry of every known rule, keyed by id."""
 from __future__ import annotations
 
 from sparkguardian.rules.base import BaseRule, RuleConfig
 
 
 class RuleRegistry:
+    # Filled by the @register decorator at import time. Importing
+    # static_rules is therefore what makes the rules exist.
     _rules: dict[str, type[BaseRule]] = {}
 
     @classmethod
@@ -26,6 +29,8 @@ class RuleRegistry:
         for rule_id, rule_cls in cls._rules.items():
             config = configs.get(rule_id, RuleConfig())
             instance = rule_cls(config)
+            # Disabled rules are dropped here, not skipped later, so the
+            # analyzer never has to know about configuration.
             if instance.enabled:
                 rules.append(instance)
         return rules

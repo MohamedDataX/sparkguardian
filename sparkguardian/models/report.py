@@ -1,3 +1,4 @@
+"""The result of analysing one target: its issues plus derived counts."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -16,6 +17,8 @@ class AnalysisReport:
     metadata: dict[str, str] = field(default_factory=dict)
     duration_ms: float = 0.0
 
+    # Everything below reads from active_issues, never from `issues`, so
+    # suppressed findings never reach scores, exit codes or cost.
     @property
     def active_issues(self) -> list[Issue]:
         return [i for i in self.issues if i.status == IssueStatus.ACTIVE]

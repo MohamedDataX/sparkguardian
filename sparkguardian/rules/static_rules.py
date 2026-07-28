@@ -1,4 +1,13 @@
-"""Static AST-based PySpark anti-pattern rules."""
+"""PySpark anti-patterns detectable from the source code alone.
+
+Each rule is a libcst visitor that collects positions, plus a BaseRule subclass
+holding the metadata. Rules self-register via @RuleRegistry.register, so adding
+one means adding a class here and nothing else.
+
+This is syntax matching, not type inference: we cannot tell a DataFrame from any
+other object, so a rule keyed on a method name can fire on something unrelated.
+Users silence those with a `# cy:ignore` comment.
+"""
 from __future__ import annotations
 
 import libcst as cst
@@ -10,31 +19,9 @@ from sparkguardian.rules.categories import Category
 from sparkguardian.rules.registry import RuleRegistry
 
 
-def _get_position(node: cst.CSTNode, wrapper: meta.MetadataWrapper) -> tuple[int, int]:
-    try:
-        pos = wrapper.resolve(meta.PositionProvider)[node]
-        return pos.start.line, pos.start.column
-    except Exception:
-        return 0, 0
-
-
-class _MethodCallVisitor(cst.CSTVisitor):
-    """Collect all method call nodes matching target method names."""
-
-    METADATA_DEPENDENCIES = (meta.PositionProvider,)
-
-    def __init__(self, method_names: set[str]) -> None:
-        self.method_names = method_names
-        self.findings: list[tuple[cst.Call, int, int]] = []
-
-    def visit_Call(self, node: cst.Call) -> None:
-        if isinstance(node.func, cst.Attribute):
-            name = node.func.attr.value
-            if name in self.method_names:
-                self.findings.append((node, 0, 0))
-
-
 class _PositionMethodCallVisitor(cst.CSTVisitor):
+    """Records every `x.<name>()` call whose name is in the given set."""
+
     METADATA_DEPENDENCIES = (meta.PositionProvider,)
 
     def __init__(self, method_names: set[str]) -> None:
@@ -42,6 +29,8 @@ class _PositionMethodCallVisitor(cst.CSTVisitor):
         self.findings: list[tuple[str, int, int]] = []
 
     def visit_Call(self, node: cst.Call) -> None:
+        # Attribute = the call has a receiver (df.collect()). A bare Name would
+        # be a free function, never what these rules look for.
         if isinstance(node.func, cst.Attribute):
             name = node.func.attr.value
             if name in self.method_names:
@@ -49,12 +38,14 @@ class _PositionMethodCallVisitor(cst.CSTVisitor):
                     pos = self.get_metadata(meta.PositionProvider, node)
                     self.findings.append((name, pos.start.line, pos.start.column))
                 except Exception:
+                    # Synthesized nodes have no position. Line 0 beats dropping it.
                     self.findings.append((name, 0, 0))
 
 
 def _find_method_calls(
     tree: cst.Module, method_names: set[str]
 ) -> list[tuple[str, int, int]]:
+    """Shortcut for the many rules that just need "find calls named X"."""
     wrapper = meta.MetadataWrapper(tree)
     visitor = _PositionMethodCallVisitor(method_names)
     wrapper.visit(visitor)
@@ -112,6 +103,7 @@ class CountAbuse(BaseRule):
     autofix_available = False
 
     def check(self, tree: cst.Module, filepath: str) -> list[Issue]:
+        # Also fires on list.count() and str.count(). Accepted: no type info here.
         issues = []
         for _name, line, col in _find_method_calls(tree, {"count"}):
             issues.append(self._make_issue(filepath, line, col, ".count() triggers full scan"))
@@ -126,6 +118,7 @@ class _SparkActionInLoopVisitor(cst.CSTVisitor):
 
     def __init__(self) -> None:
         self.findings: list[tuple[str, int, int]] = []
+        # Counter, not a flag: nested loops must stay "inside a loop" on exit.
         self._in_loop_depth = 0
 
     def visit_For(self, node: cst.For) -> None:
@@ -185,6 +178,7 @@ class _RepartitionVisitor(cst.CSTVisitor):
             return
         if not node.args:
             return
+        # Literal 1 only. repartition(n) with a variable can't be judged here.
         first_arg = node.args[0].value
         if isinstance(first_arg, cst.Integer) and first_arg.value == "1":
             try:
@@ -226,6 +220,8 @@ class _ChainedWithColumnVisitor(cst.CSTVisitor):
             return
         if node.func.attr.value != "withColumn":
             return
+        # Walk down the receiver chain counting consecutive withColumn calls.
+        # Reported on the outermost one, so a chain yields a single issue.
         chain_len = 1
         inner = node.func.value
         while isinstance(inner, cst.Call) and isinstance(inner.func, cst.Attribute):
@@ -282,6 +278,7 @@ class _ImplicitJoinVisitor(cst.CSTVisitor):
             for arg in node.args
             if arg.keyword is not None
         )
+        # 3+ positional args means how= was passed positionally: df.join(o, on, "left")
         positional_count = sum(1 for a in node.args if a.keyword is None)
         if positional_count < 3 and not has_how:
             try:
@@ -450,9 +447,6 @@ class ShowInProduction(BaseRule):
         ]
 
 
-# ---------------------------------------------------------------------------
-# CY012 — Excessive cache()/persist() calls
-# ---------------------------------------------------------------------------
 
 class _CacheCallVisitor(cst.CSTVisitor):
     METADATA_DEPENDENCIES = (meta.PositionProvider,)
@@ -495,9 +489,6 @@ class ExcessiveCache(BaseRule):
         ]
 
 
-# ---------------------------------------------------------------------------
-# CY013 — Repeated scans (same DataFrame created from same source 2+ times)
-# ---------------------------------------------------------------------------
 
 class _ReadCallVisitor(cst.CSTVisitor):
     METADATA_DEPENDENCIES = (meta.PositionProvider,)
@@ -522,6 +513,7 @@ class _ReadCallVisitor(cst.CSTVisitor):
                 self._read_paths.append((str(path_val), 0, 0))
 
     def duplicates(self) -> list[tuple[str, int, int]]:
+        """Second and later reads of a path. The first one is legitimate."""
         seen: dict[str, int] = {}
         dupes: list[tuple[str, int, int]] = []
         for path, line, col in self._read_paths:
@@ -553,9 +545,6 @@ class RepeatedScan(BaseRule):
         ]
 
 
-# ---------------------------------------------------------------------------
-# CY014 — groupBy before filter (should filter first)
-# ---------------------------------------------------------------------------
 
 class _GroupByBeforeFilterVisitor(cst.CSTVisitor):
     METADATA_DEPENDENCIES = (meta.PositionProvider,)
@@ -568,6 +557,8 @@ class _GroupByBeforeFilterVisitor(cst.CSTVisitor):
             return
         if node.func.attr.value != "filter":
             return
+        # Climb the receiver chain: a groupBy below a filter means the filter
+        # runs after the shuffle, on more rows than necessary.
         inner = node.func.value
         while isinstance(inner, cst.Call) and isinstance(inner.func, cst.Attribute):
             if inner.func.attr.value == "groupBy":
@@ -601,9 +592,6 @@ class GroupByBeforeFilter(BaseRule):
         ]
 
 
-# ---------------------------------------------------------------------------
-# CY016 — crossJoin() explicit detection
-# ---------------------------------------------------------------------------
 
 class _CrossJoinVisitor(cst.CSTVisitor):
     METADATA_DEPENDENCIES = (meta.PositionProvider,)
@@ -641,9 +629,6 @@ class CrossJoin(BaseRule):
         ]
 
 
-# ---------------------------------------------------------------------------
-# CY017 — Multiple distinct() calls
-# ---------------------------------------------------------------------------
 
 class _DistinctVisitor(cst.CSTVisitor):
     METADATA_DEPENDENCIES = (meta.PositionProvider,)
@@ -681,16 +666,13 @@ class DistinctAbuse(BaseRule):
         ]
 
 
-# ---------------------------------------------------------------------------
-# CY018 — orderBy/sort without limit
-# ---------------------------------------------------------------------------
 
 class _OrderByWithoutLimitVisitor(cst.CSTVisitor):
-    """
-    df.orderBy(...).limit(N) in CST:
-      Call(func=Attribute(value=Call(orderBy), attr="limit"))
-    The limit Call is visited first (pre-order). We mark the inner orderBy node
-    as safe, then flag any orderBy not in the safe set.
+    """orderBy()/sort() with no limit() on top.
+
+    In the CST, df.orderBy(...).limit(N) nests the orderBy inside the limit call,
+    and pre-order traversal reaches limit first. So we mark the inner orderBy as
+    safe on the way down, then flag any orderBy that was never marked.
     """
     METADATA_DEPENDENCIES = (meta.PositionProvider,)
 

@@ -1,3 +1,7 @@
+"""Issues: what a rule reports, and where.
+
+The enums inherit from str so they serialize straight to JSON/SARIF.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,6 +23,8 @@ class ImpactType(str, Enum):
 
 
 class IssueStatus(str, Enum):
+    # Suppressed issues stay in the report as IGNORED so reports can show
+    # how much a codebase is silencing.
     ACTIVE = "ACTIVE"
     IGNORED = "IGNORED"
     FIXED = "FIXED"
@@ -48,7 +54,7 @@ class Issue:
     location: Location
     suggestion: str = ""
     explanation: str = ""
-    confidence: float = 1.0
+    confidence: float = 1.0  # reserved for future probabilistic rules
     status: IssueStatus = IssueStatus.ACTIVE
     ignore_reason: str = ""
     autofix_available: bool = False

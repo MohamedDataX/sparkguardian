@@ -1,3 +1,4 @@
+"""One node of a Spark physical plan."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -26,6 +27,8 @@ class ExecutionNode:
     node_type: NodeType
     raw_text: str
     depth: int = 0
+    # The parser returns a flat list today, so children stays empty. Kept
+    # because all_nodes() already walks it if a tree is ever built.
     children: list[ExecutionNode] = field(default_factory=list)
     metadata: dict[str, str] = field(default_factory=dict)
     estimated_rows: int | None = None
