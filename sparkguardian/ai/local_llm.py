@@ -1,6 +1,7 @@
 """Local-only LLM client via Ollama. No cloud inference. No source code exfiltration."""
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 
 from sparkguardian.ai.cache import AIResponseCache
@@ -22,16 +23,6 @@ logger = get_logger(__name__)
 DEFAULT_MODEL = "deepseek-coder:6.7b"
 FALLBACK_MODELS = ["deepseek-coder:6.7b", "codellama:7b", "llama3:8b", "mistral:7b"]
 OLLAMA_BASE_URL = "http://localhost:11434"
-
-
-def _import_ollama() -> object:
-    try:
-        import ollama  # type: ignore[import]
-        return ollama
-    except ImportError as e:
-        raise RuntimeError(
-            "ollama package not installed. Run: pip install 'sparkguardian[ai]'"
-        ) from e
 
 
 class LocalLLM:
@@ -211,13 +202,19 @@ class LocalLLM:
                 return cached
 
         try:
-            ol = _import_ollama()
-            response = ol.chat(
-                model=self._model,
-                messages=self._build_messages(prompt),
-                options={"num_predict": 1024},
+            import httpx  # type: ignore[import]
+            r = httpx.post(
+                f"{self._base_url}/api/chat",
+                json={
+                    "model": self._model,
+                    "messages": self._build_messages(prompt),
+                    "stream": False,
+                    "options": {"num_predict": 1024},
+                },
+                timeout=self._timeout,
             )
-            result: str = response["message"]["content"]
+            r.raise_for_status()
+            result: str = r.json()["message"]["content"]
             if use_cache:
                 self._cache.set(self._model, prompt, result)
             return result
@@ -227,16 +224,24 @@ class LocalLLM:
 
     def _stream(self, prompt: str) -> Iterator[str]:
         try:
-            ol = _import_ollama()
-            stream = ol.chat(
-                model=self._model,
-                messages=self._build_messages(prompt),
-                stream=True,
-            )
-            for chunk in stream:
-                token = chunk.get("message", {}).get("content", "")
-                if token:
-                    yield token
+            import httpx  # type: ignore[import]
+            with httpx.stream(
+                "POST",
+                f"{self._base_url}/api/chat",
+                json={
+                    "model": self._model,
+                    "messages": self._build_messages(prompt),
+                    "stream": True,
+                },
+                timeout=self._timeout,
+            ) as resp:
+                resp.raise_for_status()
+                for line in resp.iter_lines():
+                    if not line:
+                        continue
+                    token = json.loads(line).get("message", {}).get("content", "")
+                    if token:
+                        yield token
         except Exception as e:
             logger.error("Ollama stream error: %s", e)
             yield f"[AI unavailable: {e}]"

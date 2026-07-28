@@ -1,6 +1,7 @@
 """AISession — stateful multi-turn conversation with history + context window management."""
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from dataclasses import dataclass
 
@@ -92,29 +93,43 @@ class AISession:
 
     def _call(self) -> str:
         try:
-            import ollama  # type: ignore[import]
-            response = ollama.chat(
-                model=self._model,
-                messages=self._as_ollama_messages(),
-                options={"num_predict": 1024},
+            import httpx  # type: ignore[import]
+            r = httpx.post(
+                f"{self._base_url}/api/chat",
+                json={
+                    "model": self._model,
+                    "messages": self._as_ollama_messages(),
+                    "stream": False,
+                    "options": {"num_predict": 1024},
+                },
+                timeout=120,
             )
-            return response["message"]["content"]
+            r.raise_for_status()
+            return str(r.json()["message"]["content"])
         except Exception as e:
             logger.error("Session chat error: %s", e)
             return f"[AI error: {e}]"
 
     def _stream(self) -> Iterator[str]:
         try:
-            import ollama  # type: ignore[import]
-            stream = ollama.chat(
-                model=self._model,
-                messages=self._as_ollama_messages(),
-                stream=True,
-            )
-            for chunk in stream:
-                token = chunk.get("message", {}).get("content", "")
-                if token:
-                    yield token
+            import httpx  # type: ignore[import]
+            with httpx.stream(
+                "POST",
+                f"{self._base_url}/api/chat",
+                json={
+                    "model": self._model,
+                    "messages": self._as_ollama_messages(),
+                    "stream": True,
+                },
+                timeout=120,
+            ) as resp:
+                resp.raise_for_status()
+                for line in resp.iter_lines():
+                    if not line:
+                        continue
+                    token = json.loads(line).get("message", {}).get("content", "")
+                    if token:
+                        yield token
         except Exception as e:
             logger.error("Session stream error: %s", e)
             yield f"[AI error: {e}]"

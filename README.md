@@ -67,11 +67,18 @@ It was built to answer three questions a data engineer actually has:
 
 ```bash
 pip install sparkguardian
-pip install "sparkguardian[ai]"    # + local AI (Ollama)
 ```
 
-Python 3.11+. The core install has a small, deliberate dependency set; the AI
-features are an optional extra so the base tool stays lightweight.
+Python 3.11+. The core install has a small, deliberate dependency set.
+
+**Local AI needs no extra package.** SparkGuardian talks to a running
+[Ollama](https://ollama.ai) server over its HTTP REST API using `httpx` (a core
+dependency). Just start Ollama and pull a model:
+
+```bash
+ollama serve
+ollama pull deepseek-coder:6.7b
+```
 
 ## Usage
 

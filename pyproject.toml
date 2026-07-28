@@ -57,7 +57,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-ai = ["ollama>=0.1.7"]
+# Local AI needs no extra Python package — SparkGuardian talks to the Ollama
+# server over its HTTP REST API using httpx (already a core dependency).
+# Kept as an (empty) extra so `pip install 'sparkguardian[ai]'` still works.
+ai = []
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",
