@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator
+from typing import TYPE_CHECKING
+
+import httpx
 
 from sparkguardian.ai.cache import AIResponseCache
 from sparkguardian.ai.prompts import (
@@ -17,6 +20,9 @@ from sparkguardian.ai.structured import AIAnalysis, parse_ai_analysis
 from sparkguardian.models.issue import Issue
 from sparkguardian.models.report import AnalysisReport
 from sparkguardian.utils.logger import get_logger
+
+if TYPE_CHECKING:
+    from sparkguardian.ai.session import AISession
 
 logger = get_logger(__name__)
 
@@ -55,7 +61,6 @@ class LocalLLM:
 
     def is_available(self) -> bool:
         try:
-            import httpx  # type: ignore[import]
             r = httpx.get(f"{self._base_url}/api/tags", timeout=3)
             return r.status_code == 200
         except Exception:
@@ -63,7 +68,6 @@ class LocalLLM:
 
     def list_local_models(self) -> list[str]:
         try:
-            import httpx  # type: ignore[import]
             r = httpx.get(f"{self._base_url}/api/tags", timeout=3)
             return [m["name"] for m in r.json().get("models", [])]
         except Exception:
@@ -143,8 +147,10 @@ class LocalLLM:
     # Public API — session-based chat
     # ------------------------------------------------------------------
 
-    def create_session(self, report: AnalysisReport, score: float) -> object:
+    def create_session(self, report: AnalysisReport, score: float) -> AISession:
         """Create a stateful AISession pre-loaded with report context."""
+        # Imported lazily so importing the client never drags in the session
+        # machinery; TYPE_CHECKING above gives mypy the real type.
         from sparkguardian.ai.session import AISession
 
         top_issues = "\n".join(
@@ -202,7 +208,6 @@ class LocalLLM:
                 return cached
 
         try:
-            import httpx  # type: ignore[import]
             r = httpx.post(
                 f"{self._base_url}/api/chat",
                 json={
@@ -224,7 +229,6 @@ class LocalLLM:
 
     def _stream(self, prompt: str) -> Iterator[str]:
         try:
-            import httpx  # type: ignore[import]
             with httpx.stream(
                 "POST",
                 f"{self._base_url}/api/chat",

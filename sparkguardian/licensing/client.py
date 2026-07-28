@@ -42,7 +42,8 @@ def load_license() -> dict[str, Any] | None:
     if not LICENSE_FILE.exists():
         return None
     try:
-        return json.loads(LICENSE_FILE.read_text())
+        data: dict[str, Any] = json.loads(LICENSE_FILE.read_text())
+        return data
     except (ValueError, OSError):
         return None
 

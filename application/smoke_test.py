@@ -6,10 +6,9 @@ os.environ["DATABASE_PATH"] = tempfile.mktemp(suffix=".db")
 os.environ["SECRET_KEY"] = "test-secret"
 os.environ["ADMIN_TOKEN"] = "test-admin"
 
-from fastapi.testclient import TestClient  # noqa: E402
-
 from backend.database import init_db  # noqa: E402
 from backend.main import app  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
 init_db()
 c = TestClient(app)

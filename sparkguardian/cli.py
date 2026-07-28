@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import typer
 from rich.console import Console
@@ -20,6 +21,15 @@ from sparkguardian.reporting.terminal_reporter import print_report
 from sparkguardian.rewriter.safe_rewriter import SafeRewriter
 from sparkguardian.scoring.score_engine import compute_score
 from sparkguardian.utils.file_utils import collect_python_files
+
+# These are only needed for annotations. The real imports stay inside the
+# commands so the CLI starts fast without pulling in the AI and cost modules.
+if TYPE_CHECKING:
+    from sparkguardian.ai.structured import RemediationPlan
+    from sparkguardian.cost.estimator import CostEstimate
+    from sparkguardian.history.tracker import HistorySnapshot, HistoryStore
+    from sparkguardian.models.report import AnalysisReport
+
 
 # Commands that require a valid license before running.
 _GATED_COMMANDS = {"analyze", "fix", "explain-plan", "remediation", "chat", "cost", "history"}
@@ -257,7 +267,7 @@ def list_rules() -> None:
     console.print(t)
 
 
-def _run_ai_explanations(report) -> None:
+def _run_ai_explanations(report: AnalysisReport) -> None:
     try:
         from sparkguardian.ai.local_llm import LocalLLM
         from sparkguardian.ai.rag import SparkKnowledgeBase
@@ -357,7 +367,7 @@ def remediation(
         _print_remediation_plan(plan, score_result.total)
 
 
-def _print_remediation_plan(plan, score: float) -> None:
+def _print_remediation_plan(plan: RemediationPlan, score: float) -> None:
     from rich.table import Table
 
     console.print()
@@ -414,7 +424,7 @@ def chat(
         kb.query("", rule_id=i.rule_id) for i in report.active_issues[:5] if kb.query("", rule_id=i.rule_id)
     )
     if all_context:
-        session.inject_context(all_context)  # type: ignore[union-attr]
+        session.inject_context(all_context)
 
     console.print(
         "\n[bold cyan]SparkGuardian AI Chat[/bold cyan] "
@@ -432,16 +442,16 @@ def chat(
         if question.strip().lower() in ("exit", "quit", "q"):
             break
         if question.strip().lower() == "reset":
-            session.reset()  # type: ignore[union-attr]
+            session.reset()
             console.print("[dim]History cleared.[/dim]")
             continue
         if not question.strip():
             continue
 
         console.print("\n[bold cyan]AI[/bold cyan] ", end="")
-        for token in session.ask_stream(question):  # type: ignore[union-attr]
+        for token in session.ask_stream(question):
             console.print(token, end="", highlight=False)
-        console.print(f"\n\n[dim]Turn {session.turn_count} | Cache: {llm.cache_stats['hit_rate']}[/dim]\n")  # type: ignore[union-attr]
+        console.print(f"\n\n[dim]Turn {session.turn_count} | Cache: {llm.cache_stats['hit_rate']}[/dim]\n")
 
 
 # ---------------------------------------------------------------------------
@@ -508,7 +518,7 @@ def cost(
     _print_cost_estimate(estimate)
 
 
-def _print_cost_estimate(estimate) -> None:
+def _print_cost_estimate(estimate: CostEstimate) -> None:
     from rich.table import Table
     console.print()
     console.rule(f"[bold cyan]Cloud Cost Estimate — {estimate.target}[/bold cyan]")
@@ -603,7 +613,9 @@ def history(
     _print_history(store, snaps, target)
 
 
-def _print_history(store, snaps, target: str | None) -> None:
+def _print_history(
+    store: HistoryStore, snaps: list[HistorySnapshot], target: str | None
+) -> None:
     from rich.table import Table
 
     summary = store.summary()

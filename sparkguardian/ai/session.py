@@ -5,6 +5,8 @@ import json
 from collections.abc import Iterator
 from dataclasses import dataclass
 
+import httpx
+
 from sparkguardian.ai.prompts import SYSTEM_PROMPT
 from sparkguardian.utils.logger import get_logger
 
@@ -93,7 +95,6 @@ class AISession:
 
     def _call(self) -> str:
         try:
-            import httpx  # type: ignore[import]
             r = httpx.post(
                 f"{self._base_url}/api/chat",
                 json={
@@ -112,7 +113,6 @@ class AISession:
 
     def _stream(self) -> Iterator[str]:
         try:
-            import httpx  # type: ignore[import]
             with httpx.stream(
                 "POST",
                 f"{self._base_url}/api/chat",
