@@ -1,3 +1,4 @@
+"""Base class every rule inherits, plus its per-project config."""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -28,6 +29,7 @@ class BaseRule(ABC):
 
     def __init__(self, config: RuleConfig | None = None) -> None:
         self._config = config or RuleConfig()
+        # A project can raise or lower a rule's severity without editing it.
         if self._config.severity:
             self.severity = self._config.severity
 
@@ -39,6 +41,8 @@ class BaseRule(ABC):
     def check(self, tree: cst.Module, filepath: str) -> list[Issue]:
         ...
 
+    # Rules only supply the position and a message; everything else comes
+    # from the class attributes above, so wording stays consistent.
     def _make_issue(
         self,
         filepath: str,

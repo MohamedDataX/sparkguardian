@@ -1,3 +1,4 @@
+"""What kind of problem a rule reports."""
 from enum import Enum
 
 

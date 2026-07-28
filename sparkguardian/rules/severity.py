@@ -1,3 +1,4 @@
+"""Display attributes per severity: sort order, icon, colour."""
 from sparkguardian.models.issue import Severity
 
 SEVERITY_ORDER: dict[Severity, int] = {

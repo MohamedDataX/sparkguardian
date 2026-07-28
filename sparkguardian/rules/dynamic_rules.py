@@ -1,4 +1,9 @@
-"""Dynamic rules operating on execution plan analysis results."""
+"""Rules that read the execution plan instead of the source code.
+
+These catch what Catalyst actually decided to do, which the AST cannot know:
+a missing broadcast depends on table statistics, not on how the code is written.
+Locations are line 0 because a plan has no source position.
+"""
 from __future__ import annotations
 
 from sparkguardian.models.execution_node import ExecutionNode, NodeType
@@ -74,7 +79,11 @@ def check_missing_broadcast(nodes: list[ExecutionNode], source: str) -> list[Iss
 
 
 def check_window_without_partition(nodes: list[ExecutionNode], source: str) -> list[Issue]:
-    """Window function without partitionBy triggers global sort + single-node processing."""
+    """Window with no partitioning: the whole frame lands on one executor.
+
+    Heuristic. The plan text does not always spell out the partitioning, so we
+    also treat the presence of any shuffle as evidence that it is partitioned.
+    """
     issues = []
     all_nodes = [n for root in nodes for n in root.all_nodes()]
     window_nodes = [n for n in all_nodes if n.node_type == NodeType.WINDOW]
@@ -99,7 +108,11 @@ def check_window_without_partition(nodes: list[ExecutionNode], source: str) -> l
 
 
 def check_adaptive_disabled(nodes: list[ExecutionNode], source: str) -> list[Issue]:
-    """Detect plan without AdaptiveSparkPlan — AQE likely disabled."""
+    """No AdaptiveSparkPlan node means AQE is probably off.
+
+    Only worth reporting when there are shuffles to optimise, hence the
+    two-shuffle floor below.
+    """
     all_nodes = [n for root in nodes for n in root.all_nodes()]
     has_aqe = any(n.node_type == NodeType.ADAPTIVE_SPARK_PLAN for n in all_nodes)
     shuffle_count = sum(1 for n in all_nodes if n.is_shuffle())

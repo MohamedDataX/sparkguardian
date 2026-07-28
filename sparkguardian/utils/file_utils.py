@@ -1,3 +1,4 @@
+"""Small filesystem helpers."""
 from __future__ import annotations
 
 import shutil
@@ -7,6 +8,7 @@ from pathlib import Path
 
 def backup_file(filepath: str) -> str:
     src = Path(filepath)
+    # Timestamped so repeated runs never overwrite an earlier backup.
     ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     dest = src.with_suffix(f".{ts}.bak{src.suffix}")
     shutil.copy2(src, dest)
