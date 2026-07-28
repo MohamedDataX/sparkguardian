@@ -1,10 +1,8 @@
-"""History tracker — longitudinal analysis of code quality over time.
+"""Keeps a record of past audits so scores can be compared over time.
 
-Stores audit snapshots in JSON. Supports:
-  - Score evolution per file
-  - Issue count trends
-  - Regression detection between commits
-  - CSV export for academic/research analysis
+One JSON file at the project root, append-only. The point is regression
+detection: a score is not very meaningful on its own, but a drop between two
+runs of the same pipeline is.
 """
 from __future__ import annotations
 
@@ -36,7 +34,7 @@ class HistorySnapshot:
 
 
 class HistoryStore:
-    """JSON-backed audit history with thread-safe append-only writes."""
+    """Reads the whole file into memory; history stays small enough for that."""
 
     DEFAULT_PATH = ".sparkguardian-history.json"
 
@@ -44,8 +42,6 @@ class HistoryStore:
         self._path = Path(path or self.DEFAULT_PATH)
         self._snapshots: list[HistorySnapshot] = []
         self._loaded = False
-
-    # ------------------------------------------------------------------
 
     def _load(self) -> None:
         if self._loaded:
@@ -68,9 +64,7 @@ class HistoryStore:
             encoding="utf-8",
         )
 
-    # ------------------------------------------------------------------
     # Public API
-    # ------------------------------------------------------------------
 
     def record(
         self,

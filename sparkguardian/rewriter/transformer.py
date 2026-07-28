@@ -1,11 +1,15 @@
-"""LibCST transformers for safe source rewrites."""
+"""The individual rewrites. One transformer per fixable rule."""
 from __future__ import annotations
 
 import libcst as cst
 
 
 class Repartition1ToCoalesce(cst.CSTTransformer):
-    """Replace repartition(1) → coalesce(1)."""
+    """repartition(1) -> coalesce(1).
+
+    Both end with one partition, but coalesce avoids the full shuffle. Only the
+    literal 1 is touched: repartition(n) with a variable could be legitimate.
+    """
 
     def leave_Call(self, original_node: cst.Call, updated_node: cst.Call) -> cst.Call:
         if not isinstance(updated_node.func, cst.Attribute):

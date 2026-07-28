@@ -1,4 +1,9 @@
-"""Configuration loader — TOML/YAML project-level + local overrides."""
+"""Loads the per-project configuration.
+
+TOML is the documented format; YAML is accepted for teams that already use it.
+Both end up in the same GuardianConfig, so nothing downstream cares which was
+used. With no config file at all the defaults below apply.
+"""
 from __future__ import annotations
 
 import tomllib
@@ -22,6 +27,7 @@ class GuardianConfig:
 
     @classmethod
     def load(cls, config_path: str | None = None) -> GuardianConfig:
+        # Auto-discovery: first matching file in the current directory wins.
         if config_path is None:
             for candidate in (".sparkguardian.toml", ".sparkguardian.yaml", ".sparkguardian.yml"):
                 p = Path(candidate)

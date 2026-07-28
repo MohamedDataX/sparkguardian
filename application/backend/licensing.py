@@ -85,6 +85,8 @@ def verify_token(token: str) -> VerifiedToken:
     except ValueError:
         return VerifiedToken(False, "malformed")
 
+    # compare_digest, not ==, so the comparison time does not leak how much of
+    # a forged signature was correct.
     expected = _sign(f"{h_seg}.{p_seg}".encode())
     if not hmac.compare_digest(expected, sig_seg):
         return VerifiedToken(False, "bad_signature")
@@ -94,6 +96,7 @@ def verify_token(token: str) -> VerifiedToken:
     except (ValueError, json.JSONDecodeError):
         return VerifiedToken(False, "bad_payload")
 
+    # Signature first, expiry second: never trust claims from an unsigned token.
     exp = claims.get("exp")
     if exp is not None and int(time.time()) >= int(exp):
         return VerifiedToken(False, "expired", claims)

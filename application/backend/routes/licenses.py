@@ -21,6 +21,8 @@ def create_free(req: TokenRequest) -> TokenResponse:
     Idempotent: asking twice with the same email returns the same token rather
     than issuing a second one, so a lost token can always be recovered.
     """
+    # Revocation is checked before the idempotency lookup, otherwise a revoked
+    # holder would simply be handed their old token back.
     if service.is_revoked(req.email):
         raise HTTPException(status_code=403, detail="This email's license has been revoked.")
 

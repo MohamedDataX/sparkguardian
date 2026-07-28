@@ -27,7 +27,6 @@ class AIResponseCache:
         self.total_hits = 0
         self.total_misses = 0
 
-    # ------------------------------------------------------------------
 
     def _key(self, model: str, prompt: str) -> str:
         # Model is part of the key: the same prompt answered by a different
