@@ -1,4 +1,9 @@
-"""Local license activation, caching and offline expiry checks."""
+"""Client side of licensing: activate once online, then work offline.
+
+The token is validated against the portal on activation and cached in the home
+directory. Later runs only re-read that cache and compare the expiry date
+locally, so analysis never needs the network.
+"""
 from __future__ import annotations
 
 import json
@@ -52,6 +57,7 @@ def _save_license(data: dict[str, Any]) -> None:
     LICENSE_DIR.mkdir(parents=True, exist_ok=True)
     LICENSE_FILE.write_text(json.dumps(data, indent=2))
     try:
+        # Owner-only: the file holds the token and the holder's email.
         LICENSE_FILE.chmod(0o600)
     except OSError:
         pass
@@ -59,7 +65,7 @@ def _save_license(data: dict[str, Any]) -> None:
 
 def is_expired(data: dict[str, Any]) -> bool:
     exp = _parse_expiry(data.get("expires_at"))
-    if exp is None:  # lifetime / no expiry
+    if exp is None:  # community tokens never expire
         return False
     return datetime.now(tz=UTC) >= exp
 

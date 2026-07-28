@@ -1,3 +1,4 @@
+"""Markdown report, meant for CI job summaries and pull request comments."""
 from __future__ import annotations
 
 from sparkguardian.models.issue import IssueStatus

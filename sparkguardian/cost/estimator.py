@@ -53,10 +53,8 @@ class AlgorithmicCostModel:
     factor_description: str
 
 
-# ---------------------------------------------------------------------------
 # Per-rule cost models — reference cluster: 10 nodes, 1 TB/day, 1 run/day.
 # baseline_wasted_minutes = extra compute-minutes per run at that reference.
-# ---------------------------------------------------------------------------
 
 _COST_MODELS: dict[str, AlgorithmicCostModel] = {
     # --- Reliability: crashes/reruns → amortised fixed waste per run ---
@@ -153,9 +151,7 @@ _COST_MODELS: dict[str, AlgorithmicCostModel] = {
 }
 
 
-# ---------------------------------------------------------------------------
 # Workload profile
-# ---------------------------------------------------------------------------
 
 @dataclass
 class WorkloadProfile:
@@ -168,9 +164,7 @@ class WorkloadProfile:
     instance_type: str = "m6g.xlarge"
 
 
-# ---------------------------------------------------------------------------
 # Result types (unchanged public shape — backward compatible)
-# ---------------------------------------------------------------------------
 
 @dataclass
 class CostBreakdown:
@@ -199,9 +193,7 @@ class CostEstimate:
         )
 
 
-# ---------------------------------------------------------------------------
 # Estimator
-# ---------------------------------------------------------------------------
 
 class CostEstimator:
     """Estimate monthly/yearly cloud cost of PySpark anti-patterns via FinOps.

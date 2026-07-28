@@ -1,3 +1,4 @@
+"""Standalone HTML report: single file, inline CSS, dark theme."""
 from __future__ import annotations
 
 from sparkguardian.models.report import AnalysisReport
@@ -23,6 +24,12 @@ tr:hover td { background: #1e293b; }
 
 
 def to_html(report: AnalysisReport, score: ScoreResult | None = None) -> str:
+    """Build the report as one self-contained HTML file.
+
+    CSS is inlined so the file can be mailed or attached to a CI job with no
+    external assets. Note the fields interpolated below are not HTML-escaped;
+    they come from our own rules, not from user input.
+    """
     s = report.summary()
     score_html = ""
     if score:

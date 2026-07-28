@@ -18,6 +18,8 @@ from sparkguardian.constants import APP_NAME, APP_VERSION
 from sparkguardian.models.issue import Severity
 from sparkguardian.models.report import AnalysisReport
 
+# SARIF only knows four levels, so CRITICAL and HIGH both map to "error".
+# The original severity survives in the security-severity score below.
 _SEVERITY_TO_SARIF: dict[Severity, str] = {
     Severity.CRITICAL: "error",
     Severity.HIGH: "error",
@@ -26,6 +28,7 @@ _SEVERITY_TO_SARIF: dict[Severity, str] = {
     Severity.INFO: "none",
 }
 
+# GitHub reads security-severity (0-10) to sort findings in the Security tab.
 _SEVERITY_TO_SECURITY_LEVEL: dict[Severity, float] = {
     Severity.CRITICAL: 9.5,
     Severity.HIGH: 7.5,
@@ -37,6 +40,8 @@ _SEVERITY_TO_SECURITY_LEVEL: dict[Severity, float] = {
 
 def to_sarif(report: AnalysisReport) -> str:
     """Convert AnalysisReport to SARIF v2.1.0 JSON."""
+    # SARIF splits rule definitions from occurrences: each rule is described
+    # once in `rules`, and every hit references it by id.
     rule_ids_seen: dict[str, dict[str, Any]] = {}
     results: list[dict[str, Any]] = []
 

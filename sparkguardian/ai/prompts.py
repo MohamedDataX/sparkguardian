@@ -20,7 +20,6 @@ Rules you must follow:
 - When giving code examples, use realistic variable names (df, spark, etc.)"""
 
 
-
 # Structured JSON analysis prompt — returns parseable output
 
 
@@ -47,9 +46,7 @@ Respond with this exact JSON schema:
 }}"""
 
 
-# ---------------------------------------------------------------------------
 # Plain explain prompt — for streaming terminal output
-# ---------------------------------------------------------------------------
 
 EXPLAIN_FINDING_PROMPT = """Diagnose this PySpark issue concisely.
 
@@ -65,9 +62,7 @@ Answer in exactly 3 sections:
 **FIX** — corrected PySpark code snippet (code block only, no prose)"""
 
 
-# ---------------------------------------------------------------------------
 # Execution plan prompt — few-shot anchored
-# ---------------------------------------------------------------------------
 
 EXPLAIN_PLAN_PROMPT = """Translate this Spark execution plan into a structured diagnosis.
 
@@ -86,9 +81,7 @@ Output format — one line per significant node:
 Then a SUMMARY section with top 3 optimization recommendations."""
 
 
-# ---------------------------------------------------------------------------
 # Refactor prompt — minimal, code-only output
-# ---------------------------------------------------------------------------
 
 SUGGEST_REFACTOR_PROMPT = """Fix this PySpark code. Output the corrected snippet only — no prose.
 
@@ -101,9 +94,7 @@ Issue: [{rule_id}] {suggestion}
 Corrected code:"""
 
 
-# ---------------------------------------------------------------------------
 # Remediation plan prompt
-# ---------------------------------------------------------------------------
 
 REMEDIATION_PLAN_PROMPT = """You are reviewing a SparkGuardian audit report.
 
@@ -125,9 +116,7 @@ Generate a prioritized remediation plan. Respond with valid JSON only:
 }}"""
 
 
-# ---------------------------------------------------------------------------
 # Chat / Q&A prompt — for interactive session
-# ---------------------------------------------------------------------------
 
 CHAT_SYSTEM_PROMPT = """{system}
 

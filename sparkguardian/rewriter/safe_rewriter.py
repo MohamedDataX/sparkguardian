@@ -1,4 +1,10 @@
-"""Safe source rewriting engine — preserves formatting/comments/imports."""
+"""Applies automatic fixes to a source file.
+
+libcst is what makes this safe: it rewrites the tree while keeping every
+comment, blank line and quote style, so a fix produces a one-line diff instead
+of a reformatted file. Only rules listed in _RULE_TRANSFORMERS can be fixed;
+everything else is reported and left alone.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -11,6 +17,8 @@ from sparkguardian.rewriter.diff_generator import unified_diff
 from sparkguardian.rewriter.transformer import Repartition1ToCoalesce
 from sparkguardian.utils.file_utils import backup_file
 
+# A rule is auto-fixable only if it appears here. Deliberately short: a wrong
+# rewrite is far worse than a missing one.
 _RULE_TRANSFORMERS: dict[str, type[cst.CSTTransformer]] = {
     "CY008": Repartition1ToCoalesce,
 }
@@ -58,13 +66,18 @@ class SafeRewriter:
 
             transformer_cls = _RULE_TRANSFORMERS[issue.rule_id]
             try:
+                # Re-parse the current text, not the original: fixes stack, and
+                # each transformer must see what the previous one produced.
                 tree = cst.parse_module(result.modified)
                 new_tree = tree.visit(transformer_cls())
                 result.modified = new_tree.code
                 result.applied_rules.append(issue.rule_id)
             except Exception:
+                # A failed rewrite leaves result.modified untouched, so the file
+                # is never half-transformed. Record it as skipped and move on.
                 result.skipped_rules.append(issue.rule_id)
 
+        # Nothing is written in dry-run, and a backup always precedes a write.
         if result.changed and not dry_run:
             backup_file(filepath)
             Path(filepath).write_text(result.modified, encoding="utf-8")

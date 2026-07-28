@@ -1,3 +1,4 @@
+"""Unified diff between the original and rewritten source, for --dry-run."""
 from __future__ import annotations
 
 import difflib

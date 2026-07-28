@@ -1,4 +1,9 @@
-"""SparkGuardian CLI — Typer-based."""
+"""Command line entry point.
+
+One Typer command per feature. Heavy modules (AI, cost, history) are imported
+inside the commands that use them, so `sparkguardian --help` and `analyze` stay
+fast for users who never touch those features.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -104,6 +109,7 @@ def analyze(
         console.print(f"[red]No Python files found in: {path}[/red]")
         raise typer.Exit(1)
 
+    # One analyzer for every file: rules are stateless and reusable.
     analyzer = ASTAnalyzer(cfg.rule_configs)
     all_issues = []
 
@@ -111,7 +117,8 @@ def analyze(
         report = analyzer.analyze_file(filepath)
         all_issues.extend(report.issues)
 
-
+    # Issues from every file are merged into one report so the score, the
+    # exit code and the output formats all see a single result.
     from sparkguardian.models.report import AnalysisReport
     combined = AnalysisReport(target=path)
     combined.issues = all_issues
@@ -149,6 +156,8 @@ def analyze(
             f"[dim]History snapshot recorded: {snap.timestamp} | score={snap.score}/100[/dim]"
         )
 
+    # Exit code last, after every report has been written: CI needs the
+    # artifacts even when the run is about to fail.
     exit_code = resolve_exit_code(combined, cfg.fail_on_high)
     raise typer.Exit(exit_code)
 
@@ -454,9 +463,6 @@ def chat(
         console.print(f"\n\n[dim]Turn {session.turn_count} | Cache: {llm.cache_stats['hit_rate']}[/dim]\n")
 
 
-# ---------------------------------------------------------------------------
-# COST ESTIMATION COMMAND
-# ---------------------------------------------------------------------------
 
 @app.command()
 def cost(
@@ -566,9 +572,6 @@ def _print_cost_estimate(estimate: CostEstimate) -> None:
         console.print(t)
 
 
-# ---------------------------------------------------------------------------
-# HISTORY COMMAND
-# ---------------------------------------------------------------------------
 
 @app.command()
 def history(
