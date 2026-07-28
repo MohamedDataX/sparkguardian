@@ -98,16 +98,13 @@ include = [
     "/tests",
     "/examples",
     "/README.md",
-    "/DEMO.md",
     "/LICENSE",
     "/pyproject.toml",
 ]
 exclude = [
     "/.github",
     "/.pytest_cache",
-    "/.claude",
     "/.sparkguardian-history.json",
-    "/prompt.md",
     "**/__pycache__",
     "**/*.pyc",
 ]
