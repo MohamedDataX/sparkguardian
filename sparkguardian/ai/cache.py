@@ -1,4 +1,9 @@
-"""In-memory LRU response cache — avoid redundant Ollama calls."""
+"""LRU cache for LLM responses.
+
+Local inference costs seconds per call, and analysing a file re-asks the same
+question for every occurrence of a rule. Process-local only: nothing is written
+to disk, so no analysed code outlives the run.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -25,12 +30,16 @@ class AIResponseCache:
     # ------------------------------------------------------------------
 
     def _key(self, model: str, prompt: str) -> str:
+        # Model is part of the key: the same prompt answered by a different
+        # model is a different answer.
         raw = f"{model}::{prompt}"
         return hashlib.sha256(raw.encode()).hexdigest()
 
     def get(self, model: str, prompt: str) -> str | None:
         key = self._key(model, prompt)
         if key in self._cache:
+            # move_to_end is what makes the OrderedDict an LRU: the least
+            # recently used entry stays at the front, ready to be evicted.
             self._cache.move_to_end(key)
             self._cache[key].hits += 1
             self.total_hits += 1

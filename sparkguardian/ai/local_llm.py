@@ -1,4 +1,9 @@
-"""Local-only LLM client via Ollama. No cloud inference. No source code exfiltration."""
+"""Ollama client. Everything runs locally: no code ever leaves the machine.
+
+Ollama exposes a REST API, so httpx is all that is needed here. Every method
+returns a readable error string instead of raising: the AI is an optional
+layer on top of the static analysis, and it must never break an audit.
+"""
 from __future__ import annotations
 
 import json
@@ -32,14 +37,7 @@ OLLAMA_BASE_URL = "http://localhost:11434"
 
 
 class LocalLLM:
-    """
-    Local LLM client with:
-    - in-process response cache (LRU)
-    - system prompt injection (role anchor)
-    - structured JSON output parsing
-    - streaming support
-    - health check + model auto-select
-    """
+    """Stateless client. Use create_session() for a conversation with history."""
 
     def __init__(
         self,
@@ -54,10 +52,6 @@ class LocalLLM:
         self._timeout = timeout
         self._cache = AIResponseCache(max_size=cache_size)
         self._system_prompt = SYSTEM_PROMPT if use_system_prompt else ""
-
-    # ------------------------------------------------------------------
-    # Health
-    # ------------------------------------------------------------------
 
     def is_available(self) -> bool:
         try:
@@ -74,6 +68,7 @@ class LocalLLM:
             return []
 
     def auto_select_model(self) -> str:
+        """Pick the first model from FALLBACK_MODELS the user actually has."""
         available = self.list_local_models()
         for candidate in FALLBACK_MODELS:
             if any(candidate in m for m in available):
@@ -84,10 +79,6 @@ class LocalLLM:
     @property
     def cache_stats(self) -> dict[str, object]:
         return self._cache.stats()
-
-    # ------------------------------------------------------------------
-    # Public API — plain text
-    # ------------------------------------------------------------------
 
     def explain_issue(self, issue: Issue, rag_context: str = "") -> str:
         prompt = EXPLAIN_FINDING_PROMPT.format(
@@ -126,10 +117,6 @@ class LocalLLM:
         )
         return self._chat(prompt)
 
-    # ------------------------------------------------------------------
-    # Public API — structured output
-    # ------------------------------------------------------------------
-
     def analyze_issue_structured(self, issue: Issue, rag_context: str = "") -> AIAnalysis:
         """Return structured AIAnalysis with parsed code_before/after, confidence, tags."""
         prompt = STRUCTURED_ANALYSIS_PROMPT.format(
@@ -142,10 +129,6 @@ class LocalLLM:
         )
         raw = self._chat(prompt, use_cache=True)
         return parse_ai_analysis(issue.rule_id, raw)
-
-    # ------------------------------------------------------------------
-    # Public API — session-based chat
-    # ------------------------------------------------------------------
 
     def create_session(self, report: AnalysisReport, score: float) -> AISession:
         """Create a stateful AISession pre-loaded with report context."""
@@ -171,10 +154,6 @@ class LocalLLM:
             system_prompt=system,
         )
 
-    # ------------------------------------------------------------------
-    # Public API — streaming
-    # ------------------------------------------------------------------
-
     def stream_explain_issue(self, issue: Issue, rag_context: str = "") -> Iterator[str]:
         prompt = EXPLAIN_FINDING_PROMPT.format(
             rule_id=issue.rule_id,
@@ -190,10 +169,6 @@ class LocalLLM:
         prompt = EXPLAIN_PLAN_PROMPT.format(plan_text=plan_text)
         yield from self._stream(prompt)
 
-    # ------------------------------------------------------------------
-    # Internal
-    # ------------------------------------------------------------------
-
     def _build_messages(self, prompt: str) -> list[dict[str, str]]:
         msgs: list[dict[str, str]] = []
         if self._system_prompt:
@@ -202,6 +177,7 @@ class LocalLLM:
         return msgs
 
     def _chat(self, prompt: str, use_cache: bool = True) -> str:
+        """One-shot completion. Returns "[AI unavailable: ...]" on any failure."""
         if use_cache:
             cached = self._cache.get(self._model, prompt)
             if cached is not None:
@@ -224,6 +200,8 @@ class LocalLLM:
                 self._cache.set(self._model, prompt, result)
             return result
         except Exception as e:
+            # Broad on purpose: Ollama being down, slow or absent is normal, and
+            # none of it should abort the analysis that already succeeded.
             logger.error("Ollama chat error (model=%s): %s", self._model, e)
             return f"[AI unavailable: {e}]"
 

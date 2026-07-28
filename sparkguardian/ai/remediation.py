@@ -1,4 +1,9 @@
-"""RemediationPlanner — AI-driven prioritized action plan from AnalysisReport."""
+"""Turns a report into a prioritised fix plan.
+
+Asks the model first; if it is unavailable or returns unparseable JSON, falls
+back to a deterministic plan built from severity alone. The command therefore
+always produces something useful, with or without Ollama.
+"""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -50,12 +55,13 @@ class RemediationPlanner:
         plan = parse_remediation_plan(report.target, raw)
 
         if plan.parse_error:
+            # Model answered but not in usable JSON: severity ordering is a
+            # worse plan than the model's, but a plan nonetheless.
             logger.warning("Remediation parse failed, using heuristic fallback")
             plan = self._heuristic_plan(report, score)
 
         return plan
 
-    # ------------------------------------------------------------------
 
     def _format_issues(self, report: AnalysisReport) -> str:
         sorted_issues = sorted(
