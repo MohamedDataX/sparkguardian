@@ -1,4 +1,10 @@
-"""Execution plan analyzer — wraps parser + dynamic rules."""
+"""Runs the dynamic (plan-level) rules over a Spark execution plan.
+
+This is the runtime counterpart of ASTAnalyzer: the AST side sees the source
+code, this side sees what Catalyst actually decided to do with it. Some issues
+are only visible here, a missed broadcast for instance, because the decision
+depends on table statistics rather than on how the code was written.
+"""
 from __future__ import annotations
 
 from sparkguardian.models.issue import Issue
@@ -15,9 +21,13 @@ from sparkguardian.rules.dynamic_rules import (
 class PlanAnalyzer:
     def __init__(self, shuffle_threshold: int = 3) -> None:
         self._parser = ExecutionPlanParser()
+        # 3 shuffles is where plans in practice start looking suspicious. It is
+        # a judgement call, hence the constructor argument.
         self._shuffle_threshold = shuffle_threshold
 
     def analyze(self, plan_text: str, source: str = "<plan>") -> list[Issue]:
+        # Parse once and hand the same node list to every check; the plans we
+        # get are small, but re-parsing per rule would be wasteful for nothing.
         nodes = self._parser.parse(plan_text)
         issues: list[Issue] = []
         issues.extend(check_cartesian_product(nodes, source))
