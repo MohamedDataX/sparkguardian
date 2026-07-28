@@ -1,7 +1,7 @@
 """Admin endpoints — list / revoke licenses + stats. Bearer-token protected."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, Header, HTTPException
 
 from backend import service
 from backend.config import settings

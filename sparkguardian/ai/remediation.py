@@ -1,11 +1,16 @@
 """RemediationPlanner — AI-driven prioritized action plan from AnalysisReport."""
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sparkguardian.ai.prompts import REMEDIATION_PLAN_PROMPT
 from sparkguardian.ai.structured import RemediationPlan, parse_remediation_plan
 from sparkguardian.models.issue import Severity
 from sparkguardian.models.report import AnalysisReport
 from sparkguardian.utils.logger import get_logger
+
+if TYPE_CHECKING:
+    from sparkguardian.ai.local_llm import LocalLLM
 
 logger = get_logger(__name__)
 
@@ -19,8 +24,8 @@ _SEVERITY_RANK = {
 
 
 class RemediationPlanner:
-    def __init__(self, llm: object) -> None:
-        self._llm = llm  # LocalLLM instance
+    def __init__(self, llm: LocalLLM) -> None:
+        self._llm = llm
 
     def generate(self, report: AnalysisReport, score: float) -> RemediationPlan:
         if not report.active_issues:

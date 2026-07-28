@@ -8,6 +8,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
+from sparkguardian.models.issue import Issue
 from sparkguardian.models.report import AnalysisReport
 from sparkguardian.rules.severity import SEVERITY_COLORS, SEVERITY_ICONS
 from sparkguardian.scoring.score_engine import ScoreResult
@@ -23,7 +24,7 @@ def print_report(report: AnalysisReport, score: ScoreResult | None = None, show_
     if not active:
         console.print("[bold green]✓ No issues found.[/bold green]")
     else:
-        by_file: dict[str, list] = defaultdict(list)
+        by_file: dict[str, list[Issue]] = defaultdict(list)
         for issue in active:
             by_file[issue.location.file].append(issue)
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -49,7 +50,7 @@ class GuardianConfig:
         return cls._parse(data)
 
     @classmethod
-    def _parse(cls, data: dict) -> GuardianConfig:
+    def _parse(cls, data: dict[str, Any]) -> GuardianConfig:
         # Support [sparkguardian] section or flat top-level keys
         root = data.get("sparkguardian", data)
         cfg = cls()

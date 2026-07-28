@@ -12,6 +12,7 @@ Spec: https://docs.oasis-open.org/sarif/sarif/v2.1.0/
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from sparkguardian.constants import APP_NAME, APP_VERSION
 from sparkguardian.models.issue import Severity
@@ -36,8 +37,8 @@ _SEVERITY_TO_SECURITY_LEVEL: dict[Severity, float] = {
 
 def to_sarif(report: AnalysisReport) -> str:
     """Convert AnalysisReport to SARIF v2.1.0 JSON."""
-    rule_ids_seen: dict[str, dict] = {}
-    results: list[dict] = []
+    rule_ids_seen: dict[str, dict[str, Any]] = {}
+    results: list[dict[str, Any]] = []
 
     for issue in report.active_issues:
         rule_ids_seen.setdefault(

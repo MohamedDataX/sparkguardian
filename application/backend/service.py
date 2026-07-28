@@ -1,7 +1,7 @@
 """License persistence + business logic shared across routes."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from backend.database import get_conn
 from backend.licensing import issue_token, verify_token
@@ -19,14 +19,14 @@ FREE_TYPE = "community"
 def _iso(ts: int | None) -> str | None:
     if ts is None:
         return None
-    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+    return datetime.fromtimestamp(ts, tz=UTC).isoformat()
 
 
 def create_license(name: str, email: str, kind: str = FREE_TYPE) -> dict[str, object]:
     """Issue a token of ``kind`` and persist it."""
     ttl = TTL_DAYS.get(kind)
     token, jti, exp = issue_token(name, email, kind, ttl)
-    created_iso = _iso(int(datetime.now(tz=timezone.utc).timestamp()))
+    created_iso = _iso(int(datetime.now(tz=UTC).timestamp()))
     expires_iso = _iso(exp)
 
     with get_conn() as conn:
@@ -87,7 +87,7 @@ def validate(token: str) -> dict[str, object]:
             return {"valid": False, "reason": "revoked"}
         conn.execute(
             "UPDATE licenses SET activations=activations+1, activated_at=? WHERE jti=?",
-            (datetime.now(tz=timezone.utc).isoformat(), jti),
+            (datetime.now(tz=UTC).isoformat(), jti),
         )
 
     return {
@@ -115,7 +115,7 @@ def revoke(jti: str) -> bool:
 
 
 def stats() -> dict[str, int]:
-    now_iso = datetime.now(tz=timezone.utc).isoformat()
+    now_iso = datetime.now(tz=UTC).isoformat()
     with get_conn(write=False) as conn:
         total = conn.execute("SELECT COUNT(*) c FROM licenses").fetchone()["c"]
         active = conn.execute(
