@@ -5,6 +5,8 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.4] — 2026-07-30
+
 ### Added
 - S3-backed storage for the licensing portal, so it can run on AWS Lambda where
   the filesystem is wiped between invocations.
@@ -18,6 +20,10 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 - `analyze` no longer stops to ask for a license token in CI, where nobody can
   answer the prompt.
+- `activate` pointed at the old Fly.io portal, which is gone. The packages
+  published as 0.1.3 and earlier could not reach it, so activation failed with an
+  SSL error. The default server is now the AWS endpoint. Set
+  `SPARKGUARDIAN_API_URL` to point at your own portal instead.
 
 ## [0.1.3] — 2026-07-23
 
@@ -82,7 +88,8 @@ First public release.
 - CI integration: exit codes 0/1/2 and example files for GitHub Actions, GitLab
   and Jenkins.
 
-[Unreleased]: https://github.com/MohamedDataX/sparkguardian/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/MohamedDataX/sparkguardian/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/MohamedDataX/sparkguardian/releases/tag/v0.1.4
 [0.1.3]: https://github.com/MohamedDataX/sparkguardian/releases/tag/v0.1.3
 [0.1.2]: https://github.com/MohamedDataX/sparkguardian/releases/tag/v0.1.2
 [0.1.1]: https://github.com/MohamedDataX/sparkguardian/releases/tag/v0.1.1
