@@ -31,8 +31,20 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-DEFAULT_MODEL = "deepseek-coder:6.7b"
-FALLBACK_MODELS = ["deepseek-coder:6.7b", "codellama:7b", "llama3:8b", "mistral:7b"]
+# Ordered best-first. Explaining a finding is a conversation, not code
+# completion, so instruction-tuned models come before the pure coding ones:
+# deepseek-coder tends to ignore its system prompt and answer off-topic.
+DEFAULT_MODEL = "qwen2.5-coder:7b"
+FALLBACK_MODELS = [
+    "qwen2.5-coder:7b",
+    "mistral:7b-instruct",
+    "llama3.1:8b",
+    "llama3.2",
+    "deepseek-coder:6.7b",
+    "codellama:7b",
+    "llama3:8b",
+    "mistral:7b",
+]
 OLLAMA_BASE_URL = "http://localhost:11434"
 
 
@@ -68,12 +80,23 @@ class LocalLLM:
             return []
 
     def auto_select_model(self) -> str:
-        """Pick the first model from FALLBACK_MODELS the user actually has."""
+        """Keep the requested model if it is installed, else fall back.
+
+        The requested model wins: overriding it here would silently discard
+        ``--model``, which is the whole point of the option.
+        """
         available = self.list_local_models()
+        if any(self._model in m for m in available):
+            return self._model
         for candidate in FALLBACK_MODELS:
             if any(candidate in m for m in available):
                 self._model = candidate
                 return candidate
+        return self._model
+
+    @property
+    def model(self) -> str:
+        """Model currently in use (may change after auto_select_model())."""
         return self._model
 
     @property

@@ -308,8 +308,8 @@ def ai_status(
     model: str | None = typer.Option(None, "--model", "-m", help="Ollama model name"),
 ) -> None:
     """Check local AI (Ollama) availability and list installed models."""
-    from sparkguardian.ai.local_llm import OLLAMA_BASE_URL, LocalLLM
-    llm = LocalLLM(model=model or "deepseek-coder:6.7b")
+    from sparkguardian.ai.local_llm import DEFAULT_MODEL, OLLAMA_BASE_URL, LocalLLM
+    llm = LocalLLM(model=model or DEFAULT_MODEL)
 
     if llm.is_available():
         console.print(f"[green]Ollama running at {OLLAMA_BASE_URL}[/green]")
@@ -319,9 +319,16 @@ def ai_status(
             for m in models:
                 console.print(f"  • {m}")
         else:
-            console.print("[yellow]No models installed. Run: ollama pull deepseek-coder:6.7b[/yellow]")
+            console.print(f"[yellow]No models installed. Run: ollama pull {DEFAULT_MODEL}[/yellow]")
+        requested = llm.model
         selected = llm.auto_select_model()
-        console.print(f"[cyan]Auto-selected model: {selected}[/cyan]")
+        if selected == requested:
+            console.print(f"[cyan]Using model: {selected}[/cyan]")
+        else:
+            console.print(
+                f"[cyan]Using model: {selected}[/cyan] "
+                f"[dim](fallback — {requested} not installed)[/dim]"
+            )
     else:
         console.print(f"[red]Ollama not available at {OLLAMA_BASE_URL}[/red]")
         console.print("Install: https://ollama.ai | Start: ollama serve")
@@ -336,7 +343,7 @@ def remediation(
     output_json: bool = typer.Option(False, "--json", help="Output JSON"),
 ) -> None:
     """Generate AI-driven prioritized remediation plan for a file."""
-    from sparkguardian.ai.local_llm import LocalLLM
+    from sparkguardian.ai.local_llm import DEFAULT_MODEL, LocalLLM
     from sparkguardian.ai.remediation import RemediationPlanner
     from sparkguardian.scoring.score_engine import compute_score
 
@@ -353,7 +360,7 @@ def remediation(
         combined.issues.extend(analyzer.analyze_file(f).issues)
 
     score_result = compute_score(combined)
-    llm = LocalLLM(model=model or "deepseek-coder:6.7b")
+    llm = LocalLLM(model=model or DEFAULT_MODEL)
 
     if not llm.is_available():
         Console(stderr=True).print("[yellow]Ollama not running — using heuristic plan[/yellow]")
@@ -409,7 +416,7 @@ def chat(
     model: str | None = typer.Option(None, "--model", "-m", help="Ollama model"),
 ) -> None:
     """Interactive AI chat about audit findings for a file."""
-    from sparkguardian.ai.local_llm import LocalLLM
+    from sparkguardian.ai.local_llm import DEFAULT_MODEL, LocalLLM
     from sparkguardian.scoring.score_engine import compute_score
 
     cfg = GuardianConfig.load(config)
@@ -417,7 +424,7 @@ def chat(
     report = analyzer.analyze_file(path)
     score_result = compute_score(report)
 
-    llm = LocalLLM(model=model or "deepseek-coder:6.7b")
+    llm = LocalLLM(model=model or DEFAULT_MODEL)
     if not llm.is_available():
         console.print("[red]Ollama not running. Start with: ollama serve[/red]")
         raise typer.Exit(1)
