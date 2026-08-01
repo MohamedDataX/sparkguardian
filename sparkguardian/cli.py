@@ -364,6 +364,10 @@ def remediation(
 
     if not llm.is_available():
         Console(stderr=True).print("[yellow]Ollama not running — using heuristic plan[/yellow]")
+    else:
+        # Without this the default model may not be installed, and every call
+        # 404s into the heuristic plan with only a log line to show why.
+        llm.auto_select_model()
 
     planner = RemediationPlanner(llm)
     plan = planner.generate(combined, score_result.total)
